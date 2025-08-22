@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qtransformers"
+version = "0.1.0"
+description = "Quantum-inspired attention mechanisms for Transformers"
+authors = [{name = "Q-Transformers Team"}]
+license = {text = "MIT"}
+readme = "../README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Researchers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "torch>=1.13.0",
+    "transformers>=4.20.0",
+    "numpy>=1.21.0",
+    "qiskit>=0.45.0",
+    "pennylane>=0.32.0",
+    "matplotlib>=3.5.0",
+    "seaborn>=0.11.0",
+    "jupyter>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=22.0.0",
+    "isort>=5.10.0",
+    "flake8>=5.0.0",
+    "mypy>=0.991",
+]
+quantum = [
+    "qiskit-aer>=0.12.0",
+    "pennylane-lightning>=0.32.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/kumarlokesh/q-transformers"
+Repository = "https://github.com/kumarlokesh/q-transformers"
+Documentation = "https://q-transformers.readthedocs.io"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["qtransformers*", "qsim*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+line_length = 88
