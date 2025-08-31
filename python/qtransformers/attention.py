@@ -120,26 +120,35 @@ class QuantumAttentionLayer(nn.Module):
         """Classical scaled dot-product attention (placeholder)."""
         L, H, N, D = q.shape
         S = k.shape[0]
-        
-        # Compute attention scores
-        scores = torch.matmul(q.transpose(0, 1), k.transpose(0, 1).transpose(-2, -1)) / (D ** 0.5)
-        # scores: (H, N, L, S)
-        
-        # Apply masks
+
+        # Reorder to (N, H, L, D) to compute per-batch scores
+        q_nhld = q.permute(2, 1, 0, 3)  # (N, H, L, D)
+        k_nhsd = k.permute(2, 1, 0, 3)  # (N, H, S, D)
+        v_nhsd = v.permute(2, 1, 0, 3)  # (N, H, S, D)
+
+        # Compute attention scores: (N, H, L, S)
+        scores = torch.matmul(q_nhld, k_nhsd.transpose(-2, -1)) / (D ** 0.5)
+
+        # Apply masks with correct broadcasting
         if attn_mask is not None:
-            scores += attn_mask
+            # attn_mask expected shape (L, S)
+            scores = scores + attn_mask.unsqueeze(0).unsqueeze(0)
         if key_padding_mask is not None:
-            scores.masked_fill_(key_padding_mask.unsqueeze(0).unsqueeze(2), float('-inf'))
-            
-        # Apply softmax
-        attn_weights = F.softmax(scores, dim=-1)
+            # key_padding_mask expected shape (N, S)
+            scores = scores.masked_fill(key_padding_mask.unsqueeze(1).unsqueeze(2), float('-inf'))
+
+        # Softmax over keys
+        attn_weights = F.softmax(scores, dim=-1)  # (N, H, L, S)
         attn_weights = self.dropout_layer(attn_weights)
-        
-        # Apply attention to values
-        attn_output = torch.matmul(attn_weights, v.transpose(0, 1))  # (H, N, L, D)
-        attn_output = attn_output.transpose(0, 2)  # (L, H, N, D)
-        
-        return attn_output, attn_weights.transpose(0, 2)  # (L, H, N, S)
+
+        # Weighted sum: (N, H, L, S) @ (N, H, S, D) -> (N, H, L, D)
+        attn_out_nhld = torch.matmul(attn_weights, v_nhsd)
+
+        # Back to (L, H, N, D)
+        attn_output = attn_out_nhld.permute(2, 1, 0, 3)
+
+        # Return attn_weights as (N, H, L, S) so caller can average over heads
+        return attn_output, attn_weights
 
 
 def quantum_attention(
@@ -174,6 +183,9 @@ def quantum_attention(
     elif backend == "quantum-hw":
         # Real quantum hardware (to be implemented in Phase 4)
         return _quantum_hw_attention(Q, K, V, top_k)
+    elif backend == "phase0-proto":
+        # Phase 0 prototype approximation via sampling
+        return quantum_inspired_attention_prototype(Q, K, V, num_samples=max(1, top_k))
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
@@ -211,3 +223,55 @@ def _quantum_hw_attention(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor, top
     """Quantum hardware attention (placeholder - to be implemented in Phase 4)."""
     # For now, fall back to classical implementation  
     return _classical_efficient_attention(Q, K, V, top_k)
+
+
+def quantum_inspired_attention_prototype(
+    Q: torch.Tensor,
+    K: torch.Tensor,
+    V: torch.Tensor,
+    num_samples: int = 32,
+) -> torch.Tensor:
+    """
+    Phase 0 prototype: quantum-inspired approximation of softmax attention via
+    amplitude sampling. Implements the algorithm described in docs/phase0-mathematical-foundations.md.
+
+    Args:
+        Q: (..., seq_len_q, d_model)
+        K: (..., seq_len_k, d_model)
+        V: (..., seq_len_k, d_model)
+        num_samples: number of samples per query row
+
+    Returns:
+        Output tensor with shape (..., seq_len_q, d_model)
+    """
+    assert Q.dim() == 3 and K.dim() == 3 and V.dim() == 3, "Prototype expects 3D tensors (B, N, D)"
+    B, Nq, D = Q.shape
+    Nk = K.shape[-2]
+    device = Q.device
+
+    # 1) logits = Q K^T / sqrt(D)
+    logits = torch.matmul(Q, K.transpose(-2, -1)) / (D ** 0.5)  # (B, Nq, Nk)
+
+    # 2) amplitudes = exp(logits/2), row-normalize
+    amplitudes = torch.exp(logits / 2)
+    amplitudes = amplitudes / (amplitudes.norm(dim=-1, keepdim=True) + 1e-12)
+
+    # 3) Sampling from amplitudes^2 per row
+    probs = amplitudes.square()  # (B, Nq, Nk)
+    probs_2d = probs.reshape(B * Nq, Nk)
+    # Guard against NaNs and rows of zeros
+    probs_2d = torch.nan_to_num(probs_2d, nan=0.0)
+    row_sums = probs_2d.sum(dim=-1, keepdim=True)
+    safe_probs_2d = torch.where(row_sums > 0, probs_2d / row_sums, torch.full_like(probs_2d, 1.0 / Nk))
+
+    samples = torch.multinomial(safe_probs_2d, num_samples=num_samples, replacement=True)  # (B*Nq, S)
+
+    # 4) Reconstruct empirical distribution
+    recon = torch.zeros_like(safe_probs_2d, device=device)
+    recon.scatter_add_(1, samples, torch.ones_like(samples, dtype=recon.dtype))
+    recon = recon / float(num_samples)
+    recon = recon.view(B, Nq, Nk)
+
+    # 5) Apply probabilities to values: (B, Nq, Nk) @ (B, Nk, D) -> (B, Nq, D)
+    out = torch.matmul(recon, V)
+    return out

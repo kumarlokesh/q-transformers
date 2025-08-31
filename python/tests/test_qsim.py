@@ -41,7 +41,7 @@ class TestQuantumAttentionSimulator:
         
         # Check normalization (amplitudes should have unit norm)
         norms = torch.norm(amplitudes, dim=-1)
-        torch.testing.assert_close(norms, torch.ones_like(norms), atol=1e-6)
+        torch.testing.assert_close(norms, torch.ones_like(norms), rtol=0.0, atol=1e-6)
         
     def test_quantum_measurement_probabilistic(self):
         """Test quantum measurement produces valid probabilities."""
@@ -51,7 +51,7 @@ class TestQuantumAttentionSimulator:
         
         # Probabilities should sum to 1
         prob_sums = torch.sum(probs, dim=-1)
-        torch.testing.assert_close(prob_sums, torch.ones_like(prob_sums), atol=1e-6)
+        torch.testing.assert_close(prob_sums, torch.ones_like(prob_sums), rtol=0.0, atol=1e-6)
         
         # Should be non-negative
         assert torch.all(probs >= 0)
@@ -84,7 +84,7 @@ class TestAmplitudeEncode:
         
         # Check normalization
         norm = torch.norm(amplitudes)
-        torch.testing.assert_close(norm, torch.tensor(1.0), atol=1e-6)
+        torch.testing.assert_close(norm, torch.tensor(1.0), rtol=0.0, atol=1e-6)
         
     def test_encoding_properties(self):
         """Test mathematical properties of amplitude encoding."""
@@ -107,7 +107,7 @@ class TestQuantumMeasure:
         probs = quantum_measure(amplitudes, num_samples=0)
         expected_probs = amplitudes ** 2
         
-        torch.testing.assert_close(probs, expected_probs, atol=1e-6)
+        torch.testing.assert_close(probs, expected_probs, rtol=0.0, atol=1e-6)
         
     def test_sampled_measurement(self):
         """Test measurement with sampling."""

@@ -1,0 +1,37 @@
+# Ignore git and VCS
+.git
+.gitignore
+
+# Byte-compiled / optimized / DLL files
+__pycache__
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv
+venv
+
+# Build outputs
+build/
+dist/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Caches
+.cache/
+.mypy_cache/
+.pytest_cache/
+
+# OS files
+.DS_Store
+
+# Large datasets (none yet)
+benchmarks/data/
+
+# Rust targets
+rust-core/target/
+
+# Node (if any in future)
+node_modules/

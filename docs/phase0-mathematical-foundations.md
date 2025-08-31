@@ -1,4 +1,4 @@
-# Phase 0 — Mathematical Foundations & Proof-of-Concept
+# Phase 0 - Mathematical Foundations & Proof-of-Concept
 
 ## Overview
 
@@ -10,7 +10,7 @@ This document outlines the mathematical foundations for quantum-inspired attenti
 
 Traditional attention computes:
 
-```
+```text
 Attention(Q, K, V) = softmax(QK^T / √d_k) V
 ```
 
@@ -26,7 +26,7 @@ Our quantum-inspired approach approximates this through:
 
 For query vector q_i and key vectors K = [k_1, k_2, ..., k_n]:
 
-```
+```text
 |ψ_q⟩ = Σ_j α_j |j⟩  where α_j = q_i · k_j / ||q_i · K||
 ```
 
@@ -34,7 +34,7 @@ For query vector q_i and key vectors K = [k_1, k_2, ..., k_n]:
 
 The attention weight a_ij can be approximated through quantum measurement:
 
-```
+```text
 a_ij ≈ |⟨i|ψ_q⟩|² = |α_i|²
 ```
 
@@ -43,6 +43,42 @@ a_ij ≈ |⟨i|ψ_q⟩|² = |α_i|²
 - **Classical softmax**: O(n²d) for n×n attention matrix
 - **Quantum-inspired**: O(nd log n) using probabilistic sampling
 - **Memory**: O(n) instead of O(n²)
+
+### Notation and Assumptions
+
+- **Notation**:
+  - n: sequence length, d: embedding dimension, h: number of heads
+  - Q, K, V ∈ R^{n×d}; q_i, k_j, v_j denote rows
+  - τ = √d is the softmax temperature denominator
+  - A = softmax(QK^T/τ) ∈ R^{n×n}
+- **Assumptions**:
+  - Inputs are L2-normalized per head: ||q_i||_2 ≤ C_q, ||k_j||_2 ≤ C_k
+  - Logit range bounded: |⟨q_i, k_j⟩|/τ ≤ B (prevents numerical overflow)
+  - Sampling budget S per query scales sublinearly with n (e.g., S = O(log n))
+
+### Approximation and Error Bounds (sketch)
+
+We approximate row i of A via measurement-driven sampling of indices j with probabilities p_{ij} ∝ exp(⟨q_i,k_j⟩/τ).
+
+Let Â_i be the empirical distribution from S samples and Ĥ_i = Â_i V be the approximated output row. Under standard multinomial concentration (e.g., Bretagnolle–Huber–Carol inequality) and bounded values ||v_j||_2 ≤ C_v,
+
+```text
+P( ||Â_i − A_i||_1 ≥ ε ) ≤ 2 exp(− S ε^2 / 2)
+```
+
+then
+
+```text
+||Ĥ_i − (A_i V)||_2 ≤ ||Â_i − A_i||_1 · max_j ||v_j||_2 ≤ C_v · ε
+```
+
+Choosing S = O((1/ε^2)·log(1/δ)) yields ||Ĥ_i − (A_i V)||_2 ≤ C_v ε with probability ≥ 1−δ.
+
+### Sampling Complexity and Runtime
+
+- Per-row sampling cost with alias tables or top-k candidate sets: O(S log n) (or O(S) with precomputed alias method)
+- Building proposals (optional top-k shortlist via ANN): O(n log n) per layer or amortized via caching
+- Overall per layer per head (ignoring projection costs): O(n S + build) with S ≪ n
 
 ## Research Questions
 
@@ -105,6 +141,31 @@ def approximate_softmax_quantum(logits, num_samples):
     
     return probs
 ```
+
+## Experimental Protocol Checklist
+
+- **[data_setup]** Synthetic data generation seeds logged and fixed (e.g., 1337, 2024, 4096).
+- **[preprocessing]** Input normalization verified per head: `||q_i||_2`, `||k_j||_2` bounded; temperature `τ=√d` documented.
+- **[baselines]** Implement and lock baselines: exact softmax, Linformer, Performer (versions, commit hashes recorded).
+- **[hyperparams]** Grid specified and pre-registered:
+  - Samples S ∈ {8, 16, 32, 64, 128}
+  - Sequence length n ∈ {32, 64, 128, 256}
+  - Heads h ∈ {1, 4, 8}; d_head ∈ {32, 64}
+  - Noise params for `qsim` (depolarizing p ∈ {0, 1e-3, 1e-2})
+- **[metrics]**
+  - Approx error: `||A_approx − A_exact||_F / ||A_exact||_F`
+  - Output error: `||H_approx − H_exact|| / ||H_exact||`
+  - Latency (ms), peak memory (MB), sample count used
+- **[evaluation]** K independent runs (e.g., K=5) for each setting; report mean±std.
+- **[logging]** Structured logs (JSON/CSV). Capture env: Python/Rust versions, CUDA, torch, commit SHA.
+- **[plots]**
+  - Error vs S (log scale S)
+  - Latency vs sequence length n
+  - Error vs noise parameter p
+- **[ablations]** With/without top-k proposals; alias vs naive sampling; normalization on/off.
+- **[failure_modes]** Record divergence cases, probability mass collapse, instability with large logits; mitigation notes.
+- **[reproducibility]** Scripts/notebooks stored under `examples/` with README; random seeds, configs under `benchmarks/configs/` (planned).
+- **[compute]** Record hardware, batch sizes, wall-clock; cap runtime per experiment.
 
 ## Expected Outcomes
 

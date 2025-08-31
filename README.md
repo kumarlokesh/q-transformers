@@ -1,4 +1,4 @@
-# 🚀 Q-Transformers — Quantum-Inspired Attention Mechanisms
+# Q-Transformers - Quantum-Inspired Attention Mechanisms
 
 > Quantum-inspired Transformers enabling efficient multi-modal attention, leveraging probabilistic approximations and quantum-classical hybrid computation.
 
@@ -6,7 +6,7 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org/)
 
-## 🎯 Project Vision
+## Project Vision
 
 Q-Transformers addresses the fundamental O(n²) attention complexity bottleneck in Transformers by leveraging quantum-inspired probabilistic sampling. Our approach combines:
 
@@ -15,7 +15,7 @@ Q-Transformers addresses the fundamental O(n²) attention complexity bottleneck 
 - **Multi-modal support** for vision-language tasks
 - **Interpretable attention patterns** through quantum state visualization
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 q-transformers/
@@ -33,9 +33,9 @@ q-transformers/
 └── README.md                 # This file
 ```
 
-## 🗺️ Development Roadmap
+## Development Roadmap
 
-### Phase 0 — Mathematical Foundations & Proof-of-Concept (2–3 weeks)
+### Phase 0 - Mathematical Foundations & Proof-of-Concept
 
 **Goal**: Establish solid theoretical basis before implementation.
 
@@ -55,7 +55,7 @@ q-transformers/
 - Whitepaper-style mathematical notes
 - Initial benchmarking on toy datasets
 
-### Phase 1 — Quantum Simulation Layer (3–4 weeks)
+### Phase 1 - Quantum Simulation Layer
 
 **Goal**: Build classical simulator for quantum-inspired attention.
 
@@ -75,7 +75,7 @@ q-transformers/
 - `qsim` Python package
 - Jupyter notebooks with interpretability visualizations
 
-### Phase 2 — Rust Core for High-Performance Attention (5–6 weeks)
+### Phase 2 - Rust Core for High-Performance Attention
 
 **Goal**: Build fast inference engine in Rust, exposed via PyO3.
 
@@ -97,7 +97,7 @@ q-transformers/
 - Production-ready Rust crate
 - Python wheel build system
 
-### Phase 3 — HuggingFace Integration & Multi-Modal Extension (4–5 weeks)
+### Phase 3 - HuggingFace Integration & Multi-Modal Extension
 
 **Goal**: Drop-in replacement for existing models + multi-modal support.
 
@@ -119,7 +119,7 @@ q-transformers/
 - Drop-in HuggingFace compatibility
 - Multi-modal attention demonstrations
 
-### Phase 4 — Quantum Hardware Experiments (Optional, 3–4 weeks)
+### Phase 4 - Quantum Hardware Experiments
 
 **Goal**: Evaluate performance on real quantum hardware.
 
@@ -129,7 +129,7 @@ q-transformers/
   - IBM Qiskit support
   - Amazon Braket support
 - [ ] Hardware limitations assessment
-  - Limited qubits → small Q/K size experiments
+  - Limited qubits -> small Q/K size experiments
   - Realistic noise models for larger simulations
 - [ ] Comparative analysis: simulated vs real quantum results
 
@@ -138,7 +138,7 @@ q-transformers/
 - Quantum hardware integration layer
 - Real vs simulated performance analysis
 
-### Phase 5 — Documentation, Community & Release (2 weeks)
+### Phase 5 - Documentation, Community & Release
 
 **Goal**: Community-friendly release and adoption.
 
@@ -160,7 +160,7 @@ q-transformers/
 - Documentation site
 - Community engagement materials
 
-## 🎯 Success Metrics
+## Success Metrics
 
 | Metric | Target |
 |--------|--------|
@@ -170,13 +170,13 @@ q-transformers/
 | **Community adoption** | 500+ GitHub stars in 3 months |
 | **Research visibility** | Whitepaper + arXiv submission |
 
-## 🚀 Stretch Goals & Future Directions
+## Stretch Goals & Future Directions
 
 - **GPU/CUDA Support**: Rust GPU kernels via `wgpu` or CUDA FFI
 - **Edge-Friendly Inference**: Mobile deployment optimizations
 - **Beyond Attention**: Quantum-inspired MoE routing, diffusion denoising, RAG
 
-## 🛠️ Quick Start (Coming Soon)
+## Quick Start (Coming Soon)
 
 ```python
 # Install from PyPI (Phase 5)
@@ -191,22 +191,18 @@ quantum_attn = QuantumAttentionLayer(embed_dim=512, num_heads=8)
 output = quantum_attn(query, key, value)
 ```
 
-## 📊 Why This Project Matters
+## Why This Project Matters
 
 1. **Transformers are bottlenecked** by O(n²) attention cost
 2. **Quantum-inspired sampling** could change the scaling laws
 3. **Hybrid Rust + Python** bridges ML research and systems performance
 4. **Pioneer quantum-inspired** multi-modal architectures
 
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 📚 Research & References
+## Research & References
 
 - [Phase 0 Mathematical Notes](docs/phase0-mathematical-foundations.md)
 - [Quantum-Inspired Algorithms Survey](docs/quantum-inspired-survey.md)

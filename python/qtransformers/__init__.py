@@ -11,6 +11,7 @@ __author__ = "Q-Transformers Team"
 from .attention import (
     QuantumAttentionLayer,
     quantum_attention,
+    quantum_inspired_attention_prototype,
 )
 
 # Try to import Rust backend (will be available after Phase 2)
@@ -23,6 +24,7 @@ except ImportError:
 __all__ = [
     "QuantumAttentionLayer", 
     "quantum_attention",
+    "quantum_inspired_attention_prototype",
     "HAS_RUST_BACKEND",
 ]
 
