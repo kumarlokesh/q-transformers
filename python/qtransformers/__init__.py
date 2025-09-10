@@ -9,7 +9,8 @@ __version__ = "0.1.0"
 __author__ = "Q-Transformers Team"
 
 from .attention import (
-    QuantumAttentionLayer,
+    QuantumAttentionLayer, 
+    QuantumMultiheadAttention, 
     quantum_attention,
     quantum_inspired_attention_prototype,
 )
