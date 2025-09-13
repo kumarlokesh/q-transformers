@@ -30,8 +30,7 @@ class TestQuantumAttentionLayer:
         
         # Forward pass
         output, attn_weights = layer(query, key, value, need_weights=True)
-        
-        # Check output shapes
+
         assert output.shape == (seq_len, batch_size, 256)
         assert attn_weights.shape == (batch_size, seq_len, seq_len)
         

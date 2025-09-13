@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "qtransformers"
 version = "0.1.0"
 description = "Quantum-inspired attention mechanisms for Transformers"
-authors = [{name = "Q-Transformers Team"}]
+authors = [{name = "Lokesh Kumar", email = "lkumar94@gmail.com"}]
 license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.8"

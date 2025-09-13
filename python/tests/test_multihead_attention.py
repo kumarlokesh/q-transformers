@@ -45,14 +45,11 @@ class TestQuantumMultiheadAttention:
         
         output, attn_weights = attn(query, key, value)
         
-        # Check output shape
         assert output.shape == (seq_len, batch_size, embed_dim)
         
-        # Check attention weights shape (if returned)
         if attn_weights is not None:
             assert attn_weights.shape == (batch_size, seq_len, seq_len)
-            
-        # Check output is not NaN or Inf
+
         assert torch.isfinite(output).all()
         
     def test_batch_first_format(self):
@@ -74,7 +71,6 @@ class TestQuantumMultiheadAttention:
         
         output, attn_weights = attn(query, key, value)
         
-        # Check output shape (should stay batch_first)
         assert output.shape == (batch_size, seq_len, embed_dim)
         
     def test_different_quantum_backends(self):
@@ -122,8 +118,7 @@ class TestQuantumMultiheadAttention:
             # Check weights are approximately normalized per row
             row_sums = torch.sum(attn_weights, dim=-1)
             assert torch.allclose(row_sums, torch.ones_like(row_sums), atol=1e-2)
-            
-            # Check weights are non-negative
+
             assert (attn_weights >= 0).all()
             
     def test_per_head_configurations(self):

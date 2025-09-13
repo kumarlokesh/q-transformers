@@ -1,5 +1,5 @@
 """
-Advanced Sampling Strategies for Phase 2 Q-Transformers
+Advanced Sampling Strategies for Q-Transformers
 
 Implements state-of-the-art sampling techniques for <10% approximation error:
 - Quasi-Monte Carlo sampling with low-discrepancy sequences

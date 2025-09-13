@@ -18,8 +18,9 @@ try:
     from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
     from qiskit import Aer, execute, IBMQ
     from qiskit.providers import Backend
+    from qiskit.providers.aer.noise import NoiseModel
     from qiskit.providers.aer import AerSimulator
-    from qiskit.providers.aer.noise import NoiseModel, depolarizing_error, amplitude_damping_error
+    from qiskit.providers.aer.noise import depolarizing_error, amplitude_damping_error
     from qiskit.circuit import Parameter
     from qiskit.circuit.library import RealAmplitudes
     from qiskit.quantum_info import Statevector, DensityMatrix
@@ -27,6 +28,11 @@ try:
     QISKIT_AVAILABLE = True
 except ImportError:
     QISKIT_AVAILABLE = False
+    # Define dummy classes for when Qiskit is not available
+    class NoiseModel:
+        pass
+    class Backend:
+        pass
     print("Qiskit not available. Install with: pip install qiskit qiskit-aer")
 
 

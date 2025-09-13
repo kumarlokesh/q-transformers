@@ -1,0 +1,32 @@
+# Minimal test image without build tools
+FROM python:3.11-slim
+
+ENV PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Copy requirements and setup files first (for better caching)
+COPY requirements.txt /workspace/requirements.txt
+COPY python/pyproject.toml /workspace/python/pyproject.toml
+
+# Install dependencies (this layer will be cached unless requirements change)
+RUN python -m pip install --upgrade pip \
+ && python -m pip install --index-url https://download.pytorch.org/whl/cpu torch \
+ && python -m pip install numpy scipy matplotlib
+
+WORKDIR /workspace
+
+# Create basic package structure for installation
+RUN mkdir -p /workspace/python/qtransformers /workspace/python/qsim \
+ && touch /workspace/python/qtransformers/__init__.py \
+ && touch /workspace/python/qsim/__init__.py
+
+# Install package structure (cached unless pyproject.toml changes)
+RUN python -m pip install -e /workspace/python
+
+# Copy source code last (this invalidates cache only when source changes)
+COPY python/ /workspace/python/
+COPY test_basic_functionality.py /workspace/
+
+# Run the test
+CMD ["python", "/workspace/test_basic_functionality.py"]

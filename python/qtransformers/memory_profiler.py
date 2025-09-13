@@ -336,3 +336,7 @@ def benchmark_memory_efficiency(
         "gpu_memory_mb": gpu_memory_usage,
         "torch_allocated_mb": torch_allocated,
     }
+
+
+# Backward compatibility alias
+MemoryProfiler = AdvancedMemoryProfiler

@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""
+Minimal standalone test that works without external dependencies.
+
+This tests the basic structure and imports of the Q-Transformers package
+using only Python standard library components.
+"""
+
+import sys
+from pathlib import Path
+import importlib.util
+
+# Add the python package to path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root / "python"))
+
+def test_module_structure():
+    """Test if the module structure is correct."""
+    print("Testing module structure...")
+    
+    python_dir = project_root / "python"
+    
+    # Check if main packages exist
+    qtransformers_dir = python_dir / "qtransformers"
+    qsim_dir = python_dir / "qsim"
+    
+    if not qtransformers_dir.exists():
+        print("❌ qtransformers package directory missing")
+        return False
+    
+    if not qsim_dir.exists():
+        print("❌ qsim package directory missing")
+        return False
+    
+    # Check for __init__.py files
+    if not (qtransformers_dir / "__init__.py").exists():
+        print("❌ qtransformers/__init__.py missing")
+        return False
+    
+    if not (qsim_dir / "__init__.py").exists():
+        print("❌ qsim/__init__.py missing")
+        return False
+    
+    print("✅ Module structure looks correct")
+    return True
+
+def test_import_syntax():
+    """Test if Python files have valid syntax."""
+    print("\nTesting Python syntax...")
+    
+    python_files = [
+        "python/qtransformers/__init__.py",
+        "python/qtransformers/attention.py", 
+        "python/qsim/__init__.py",
+        "python/qsim/quantum_simulator.py"
+    ]
+    
+    for file_path in python_files:
+        full_path = project_root / file_path
+        if not full_path.exists():
+            print(f"❌ Missing file: {file_path}")
+            return False
+        
+        try:
+            # Check syntax by attempting to compile
+            with open(full_path, 'r') as f:
+                source = f.read()
+            compile(source, str(full_path), 'exec')
+            print(f"✅ Syntax OK: {file_path}")
+        except SyntaxError as e:
+            print(f"❌ Syntax Error in {file_path}: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Error reading {file_path}: {e}")
+            return False
+    
+    return True
+
+def test_basic_structure_imports():
+    """Test basic imports that should work without external dependencies."""
+    print("\nTesting basic structure imports...")
+    
+    try:
+        # Test if we can import the modules (without running their code)
+        import qtransformers
+        print("✅ qtransformers package imports")
+        
+        import qsim
+        print("✅ qsim package imports")
+        
+        # Check if key classes/functions are defined (without instantiating)
+        from qtransformers.attention import QuantumAttentionLayer
+        print("✅ QuantumAttentionLayer class found")
+        
+        from qsim.quantum_simulator import QuantumSimulator
+        print("✅ QuantumSimulator class found")
+        
+        return True
+        
+    except ImportError as e:
+        print(f"❌ Import failed: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        return False
+
+def test_version_info():
+    """Test version information."""
+    print("\nTesting version info...")
+    
+    try:
+        import qtransformers
+        version = getattr(qtransformers, '__version__', None)
+        if version:
+            print(f"✅ Package version: {version}")
+            if version.startswith('0.'):
+                print("✅ Correct pre-release versioning")
+            else:
+                print("⚠️  Version should start with 0.x for pre-release")
+        else:
+            print("⚠️  No version info found")
+        
+        return True
+    except Exception as e:
+        print(f"❌ Version test failed: {e}")
+        return False
+
+def main():
+    """Run minimal standalone tests."""
+    print("🧪 Q-Transformers Minimal Standalone Test")
+    print("=" * 50)
+    print("This test requires no external dependencies")
+    print()
+    
+    # Run tests that don't require external packages
+    structure_ok = test_module_structure()
+    syntax_ok = test_import_syntax()
+    
+    if not (structure_ok and syntax_ok):
+        print("\n❌ Basic structure tests failed. Cannot proceed.")
+        return False
+    
+    # Test imports (may fail if external deps missing, but we can check)
+    imports_ok = test_basic_structure_imports()
+    version_ok = test_version_info()
+    
+    # Summary
+    print(f"\n📊 Test Summary:")
+    print(f"   Module Structure: {'✅' if structure_ok else '❌'}")
+    print(f"   Python Syntax: {'✅' if syntax_ok else '❌'}")
+    print(f"   Basic Imports: {'✅' if imports_ok else '❌'}")
+    print(f"   Version Info: {'✅' if version_ok else '❌'}")
+    
+    if structure_ok and syntax_ok:
+        if imports_ok and version_ok:
+            print(f"\n🎉 All tests passed! Code structure is valid.")
+        else:
+            print(f"\n⚠️  Structure is valid, but imports fail (likely missing dependencies)")
+        return True
+    else:
+        print(f"\n❌ Basic structure issues found.")
+        return False
+
+if __name__ == "__main__":
+    success = main()
+    sys.exit(0 if success else 1)

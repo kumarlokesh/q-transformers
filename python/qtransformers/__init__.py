@@ -1,33 +1,42 @@
 """
-Q-Transformers: Quantum-Inspired Transformer Attention Mechanisms
+Quantum Transformers: Advanced quantum-inspired attention mechanisms for neural networks.
 
-This package implements quantum-inspired attention mechanisms for Transformers,
-providing both theoretical foundations and practical implementations for 
-improved attention approximation through quantum sampling techniques.
+This package provides implementations of quantum-inspired attention mechanisms,
+including quantum sampling strategies, advanced sampling techniques, GPU acceleration,
+quantum hardware integration, large-scale training infrastructure, and production deployment tools.
 
-Phase 2 Features:
-- Advanced sampling strategies (QMC, learned importance, control variates)  
-- GPU-accelerated quantum kernels with CUDA optimization
-- Qiskit quantum hardware backend integration
-- Production-ready quantum transformer blocks
-- Comprehensive error mitigation techniques
+Key Components:
+- QuantumAttentionLayer: Core quantum attention implementation
+- QuantumMultiheadAttention: Multi-head quantum attention
+- Advanced sampling strategies (Quasi-Monte Carlo, learned importance sampling)
+- Quantum error mitigation techniques
+- CUDA acceleration for quantum operations
+- Quantum transformer blocks for large-scale models
+- Qiskit backend for quantum hardware integration
+- Real-world NLP benchmarking and evaluation
+- Quantum supremacy verification protocols
+- Large-scale distributed training infrastructure
+- Production deployment tools and APIs
+- Memory profiling and visualization tools
 """
 
-# Core attention mechanisms
+__version__ = "0.1.0"
+
+# Core quantum attention
 from .attention import (
     QuantumAttentionLayer,
-    quantum_attention,
-    QuantumMultiheadAttention
+    QuantumMultiheadAttention,
+    quantum_attention
 )
 
-# Phase 2: Advanced sampling strategies
+from qsim.quantum_simulator import QuantumAttentionSimulator
+
 from .advanced_sampling import (
     QuasiMonteCarloSampler,
-    LearnedImportanceSampler, 
+    LearnedImportanceSampler,
     MultilevelControlVariate
 )
 
-# Phase 2: Error mitigation techniques
 from .quantum_error_mitigation import (
     ZeroNoiseExtrapolation,
     SymmetryVerification,
@@ -35,92 +44,173 @@ from .quantum_error_mitigation import (
     VirtualDistillation
 )
 
-# Phase 2: GPU acceleration
 from .cuda_kernels import (
     gpu_quantum_attention,
-    get_cuda_kernels,
     GPUMemoryOptimizer
 )
 
-# Phase 2: Quantum transformer blocks
+from .qiskit_backend import (
+    QiskitQuantumBackend,
+    QuantumAttentionCircuit,
+    QuantumErrorCorrection,
+    HybridQuantumClassical
+)
+
 from .quantum_transformer_blocks import (
     QuantumTransformerBlock,
-    QuantumTransformerEncoder,
     ScalableQuantumTransformer,
     create_quantum_gpt,
     create_quantum_bert
 )
 
-# Phase 2: Qiskit backend (optional import)
 try:
-    from .qiskit_backend import (
-        QiskitQuantumBackend,
-        QuantumAttentionCircuit,
-        HybridQuantumClassical,
-        create_qiskit_backend
+    from .nlp_benchmarks import (
+        GLUEBenchmarkSuite,
+        SuperGLUEBenchmarkSuite,
+        QuantumAdvantageAnalyzer,
+        ComplexReasoningBenchmark
     )
-    QISKIT_AVAILABLE = True
 except ImportError:
-    QISKIT_AVAILABLE = False
+    pass
 
-# Memory profiling utilities
-from .memory_profiler import MemoryProfiler
+try:
+    from .quantum_supremacy import (
+        QuantumSupremacyTester,
+        StatisticalVerificationFramework,
+        ComplexityAnalyzer,
+        PatternAnalyzer
+    )
+except ImportError:
+    pass
 
-# Visualization tools
-from .visualization import (
-    plot_attention_heatmap,
-    analyze_attention_patterns,
-    QuantumAttentionAnalyzer
-)
+try:
+    from .large_scale_training import (
+        QuantumTrainer,
+        DistributedQuantumTraining,
+        QuantumDataCollator,
+        MixedPrecisionQuantumTraining
+    )
+except ImportError:
+    pass
 
-__version__ = "2.0.0"
-__phase__ = "Phase 2: Production-Ready Quantum Transformers"
+try:
+    from .production_deployment import (
+        QuantumNLPServer,
+        ModelQuantizer,
+        AutoScaler,
+        HealthMonitor
+    )
+except ImportError:
+    pass
 
-# Core exports
+try:
+    from .distributed_quantum import (
+        DistributedQuantumAttention,
+        MultiGPUQuantumTransformer,
+        QuantumGradientSynchronizer,
+        setup_distributed_quantum_training,
+        create_distributed_quantum_transformer
+    )
+except ImportError:
+    pass
+
+try:
+    from .deployment import (
+        QuantumModelServer,
+        DeploymentConfig,
+        ModelVersionManager,
+        create_app,
+        run_server
+    )
+except ImportError:
+    pass
+
+try:
+    from .memory_profiler import MemoryProfiler
+except ImportError:
+    pass
+
+try:
+    from .visualization import (
+        plot_attention_heatmap,
+        analyze_quantum_attention,
+        save_attention_analysis
+    )
+except ImportError:
+    pass
+
 __all__ = [
     # Core attention
-    "QuantumAttentionLayer", 
+    "QuantumAttentionLayer",
+    "QuantumMultiheadAttention", 
     "quantum_attention",
-    "QuantumMultiheadAttention",
+    
+    # Quantum simulation
+    "QuantumSimulator",
     
     # Advanced sampling
     "QuasiMonteCarloSampler",
-    "LearnedImportanceSampler",
-    "MultilevelControlVariate",
+    "LearnedImportanceSampler", 
+    "MultiLevelControlVariates",
     
     # Error mitigation
-    "ZeroNoiseExtrapolation", 
+    "ZeroNoiseExtrapolation",
     "SymmetryVerification",
     "ProbabilisticErrorCancellation",
     "VirtualDistillation",
     
     # GPU acceleration
     "gpu_quantum_attention",
-    "get_cuda_kernels", 
+    "gpu_mps_contraction", 
     "GPUMemoryOptimizer",
+    
+    # Quantum hardware
+    "QiskitQuantumBackend",
+    "QuantumCircuitBuilder",
+    "QuantumHardwareManager",
     
     # Transformer blocks
     "QuantumTransformerBlock",
-    "QuantumTransformerEncoder", 
     "ScalableQuantumTransformer",
     "create_quantum_gpt",
     "create_quantum_bert",
     
-    # Memory and visualization
+    # NLP benchmarking
+    "GLUEBenchmarkSuite",
+    "SuperGLUEBenchmarkSuite", 
+    "QuantumAdvantageAnalyzer",
+    "NLPEvaluationFramework",
+    
+    # Quantum supremacy
+    "QuantumSupremacyVerifier",
+    "ComplexityAnalyzer",
+    "QuantumClassicalComparator",
+    "SupremacyBenchmarkSuite",
+    
+    # Training infrastructure
+    "QuantumTrainer",
+    "TrainingConfig",
+    "QuantumDataCollator",
+    "create_quantum_trainer",
+    "launch_distributed_training",
+    
+    # Distributed training
+    "DistributedQuantumAttention",
+    "MultiGPUQuantumTransformer",
+    "QuantumGradientSynchronizer", 
+    "setup_distributed_quantum_training",
+    "create_distributed_quantum_transformer",
+    
+    # Production deployment
+    "QuantumModelServer",
+    "DeploymentConfig",
+    "ModelVersionManager",
+    "create_app",
+    "run_server",
+    
+    # Utilities
     "MemoryProfiler",
     "plot_attention_heatmap",
-    "analyze_attention_patterns", 
-    "QuantumAttentionAnalyzer",
-    
-    # Constants
-    "QISKIT_AVAILABLE"
+    "analyze_quantum_attention", 
+    "save_attention_analysis"
 ]
-
-# Conditional Qiskit exports
-if QISKIT_AVAILABLE:
-    __all__.extend([
-        "QiskitQuantumBackend",
-        "QuantumAttentionCircuit", 
-        "HybridQuantumClassical",
-        "create_qiskit_backend"
-    ])

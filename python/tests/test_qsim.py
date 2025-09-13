@@ -49,11 +49,9 @@ class TestQuantumAttentionSimulator:
         
         probs = self.simulator._quantum_measure(amplitudes, num_samples=100, noise_level=0.0)
         
-        # Probabilities should sum to 1
         prob_sums = torch.sum(probs, dim=-1)
         torch.testing.assert_close(prob_sums, torch.ones_like(prob_sums), rtol=0.0, atol=1e-6)
-        
-        # Should be non-negative
+
         assert torch.all(probs >= 0)
         
     def test_noise_effect(self):

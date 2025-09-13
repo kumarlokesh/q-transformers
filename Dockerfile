@@ -13,19 +13,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install CPU PyTorch and project deps
 # Torch CPU wheels are hosted on PyTorch index
+COPY requirements.txt /workspace/requirements.txt
 RUN python -m pip install --upgrade pip setuptools wheel \
  && python -m pip install --index-url https://download.pytorch.org/whl/cpu torch \
- && python -m pip install transformers numpy matplotlib seaborn jupyter
+ && python -m pip install -r /workspace/requirements.txt
 
 WORKDIR /workspace
 
-# Copy project sources (Python packages) and README for metadata
 COPY python/ /workspace/python/
+COPY test_basic_functionality.py /workspace/
 COPY README.md /workspace/README.md
 COPY README.md /workspace/python/README.md
 
 # Install project in editable mode (Python packages only)
 RUN python -m pip install -e /workspace/python
 
-# Default command: print help
-CMD ["python", "-c", "import qtransformers as q; print('qtransformers', q.__version__) "]
+# Default command: run basic functionality test
+CMD ["python", "/workspace/test_basic_functionality.py"]
