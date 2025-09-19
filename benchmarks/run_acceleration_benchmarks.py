@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Phase 2 Comprehensive Benchmark Suite
+Acceleration Benchmark Suite
 
-Tests all Phase 2 quantum transformer implementations:
+Tests GPU acceleration and related components:
 - Advanced sampling strategies (QMC, learned importance, control variates)
 - GPU-accelerated quantum kernels
 - Qiskit quantum hardware backends
@@ -23,7 +23,6 @@ from typing import Dict, Any, List, Tuple
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Q-Transformers Phase 2 imports
 from qtransformers.advanced_sampling import QuasiMonteCarloSampler, LearnedImportanceSampler, MultilevelControlVariate
 from qtransformers.quantum_error_mitigation import ZeroNoiseExtrapolation, SymmetryVerification, ProbabilisticErrorCancellation
 from qtransformers.cuda_kernels import gpu_quantum_attention, get_cuda_kernels, GPUMemoryOptimizer
@@ -44,7 +43,7 @@ def benchmark_advanced_sampling_strategies(
     embed_dim: int = 256,
     num_samples: int = 32
 ) -> Dict[str, Any]:
-    """Benchmark Phase 2.1 advanced sampling strategies."""
+    """Benchmark advanced sampling strategies."""
     
     print("🔬 Benchmarking Advanced Sampling Strategies...")
     
@@ -105,7 +104,7 @@ def benchmark_advanced_sampling_strategies(
     
     # Simple quantum sampler for control variate testing
     def simple_quantum_sampler(Q, K, V):
-        return quantum_attention(Q, K, V, top_k=num_samples, backend="phase0-proto")
+        return quantum_attention(Q, K, V, top_k=num_samples, backend="prototype")
     
     start_time = time.time()
     quantum_output = simple_quantum_sampler(Q, K, V)
@@ -129,7 +128,7 @@ def benchmark_gpu_acceleration(
     embed_dim: int = 512,
     num_samples: int = 64
 ) -> Dict[str, Any]:
-    """Benchmark Phase 2.2 GPU acceleration."""
+    """Benchmark GPU acceleration."""
     
     print("⚡ Benchmarking GPU Acceleration...")
     
@@ -142,8 +141,7 @@ def benchmark_gpu_acceleration(
     
     if torch.cuda.is_available():
         Q_gpu, K_gpu, V_gpu = Q.cuda(), K.cuda(), V.cuda()
-        
-        # GPU Quantum Attention
+
         print("  Testing GPU quantum attention...")
         start_time = time.time()
         gpu_output = gpu_quantum_attention(Q_gpu, K_gpu, V_gpu, num_samples=num_samples)
@@ -156,7 +154,6 @@ def benchmark_gpu_acceleration(
             "memory_allocated_mb": torch.cuda.max_memory_allocated() / 1024**2
         }
         
-        # Memory optimization
         print("  Testing GPU memory optimization...")
         memory_optimizer = GPUMemoryOptimizer()
         optimal_batch = memory_optimizer.get_optimal_batch_size(seq_len, embed_dim)
@@ -186,7 +183,7 @@ def benchmark_error_mitigation(
     seq_len: int = 32,
     embed_dim: int = 128
 ) -> Dict[str, Any]:
-    """Benchmark Phase 2.1 error mitigation techniques."""
+    """Benchmark error mitigation techniques."""
     
     print("🛡️ Benchmarking Error Mitigation...")
     
@@ -196,7 +193,6 @@ def benchmark_error_mitigation(
     
     results = {}
     
-    # Zero-Noise Extrapolation
     print("  Testing Zero-Noise Extrapolation...")
     zne = ZeroNoiseExtrapolation(noise_levels=[0.0, 0.01, 0.02, 0.05])
     
@@ -221,7 +217,6 @@ def benchmark_error_mitigation(
         "metrics": zne_metrics
     }
     
-    # Symmetry Verification
     print("  Testing Symmetry Verification...")
     symmetry_verifier = SymmetryVerification(
         symmetries=["row_normalization", "positivity", "attention_entropy"]
@@ -252,7 +247,7 @@ def benchmark_quantum_transformer_blocks(
     d_model: int = 256,
     nhead: int = 8
 ) -> Dict[str, Any]:
-    """Benchmark Phase 2.4 quantum transformer blocks."""
+    """Benchmark quantum transformer blocks."""
     
     print("🧠 Benchmarking Quantum Transformer Blocks...")
     
@@ -260,7 +255,7 @@ def benchmark_quantum_transformer_blocks(
     
     # Quantum configuration
     quantum_config = {
-        "backend": "phase0-proto",
+        "backend": "prototype",
         "num_samples": 32,
         "use_advanced_sampling": True,
         "use_error_mitigation": False,  # Disable for speed
@@ -290,7 +285,6 @@ def benchmark_quantum_transformer_blocks(
         "memory_usage_mb": torch.cuda.memory_allocated() / 1024**2 if torch.cuda.is_available() else 0
     }
     
-    # Scalable Quantum Transformer (smaller version)
     print("  Testing ScalableQuantumTransformer...")
     quantum_transformer = ScalableQuantumTransformer(
         vocab_size=1000,
@@ -320,7 +314,7 @@ def benchmark_quantum_transformer_blocks(
 
 
 def benchmark_scaling_analysis(max_seq_len: int = 256) -> Dict[str, Any]:
-    """Analyze scaling behavior of Phase 2 implementations."""
+    """Analyze scaling behavior of implementations."""
     
     print("📈 Running Scaling Analysis...")
     
@@ -355,14 +349,14 @@ def benchmark_scaling_analysis(max_seq_len: int = 256) -> Dict[str, Any]:
             "memory_mb": classical_weights.numel() * 4 / 1024**2  # float32
         }
         
-        # Phase 2 quantum attention
+        # Quantum attention
         start_time = time.time()
-        quantum_output = quantum_attention(Q, K, V, top_k=32, backend="phase0-proto")
+        quantum_output = quantum_attention(Q, K, V, top_k=32, backend="prototype")
         quantum_time = time.time() - start_time
         
         quantum_error = float(torch.norm(quantum_output - classical_output) / torch.norm(classical_output))
         
-        seq_data["quantum_phase2"] = {
+        seq_data["quantum"] = {
             "latency_ms": quantum_time * 1000,
             "error": quantum_error,
             "memory_mb": Q.numel() * 4 / 1024**2  # Approximate
@@ -377,7 +371,7 @@ def generate_benchmark_report(results: Dict[str, Any]) -> str:
     """Generate comprehensive benchmark report."""
     
     report = []
-    report.append("# Q-Transformers Phase 2 Benchmark Report")
+    report.append("# Q-Transformers Acceleration Benchmark Report")
     report.append("=" * 50)
     report.append("")
     
@@ -398,8 +392,7 @@ def generate_benchmark_report(results: Dict[str, Any]) -> str:
             report.append(f"| {method.replace('_', ' ').title()} | {error_pct:.2f}% | {latency:.2f} | {notes} |")
         
         report.append("")
-        
-        # Best performing method
+
         best_method = min(sampling_results.keys(), key=lambda k: sampling_results[k]["error"])
         best_error = sampling_results[best_method]["error"] * 100
         report.append(f"**Best Method:** {best_method.replace('_', ' ').title()} ({best_error:.2f}% error)")
@@ -474,16 +467,15 @@ def generate_benchmark_report(results: Dict[str, Any]) -> str:
         
         for seq_len in results["scaling"]["seq_lengths"]:
             classical_time = scaling_data[seq_len]["classical"]["latency_ms"]
-            quantum_time = scaling_data[seq_len]["quantum_phase2"]["latency_ms"]
-            error = scaling_data[seq_len]["quantum_phase2"]["error"] * 100
+            quantum_time = scaling_data[seq_len]["quantum"]["latency_ms"]
+            error = scaling_data[seq_len]["quantum"]["error"] * 100
             speedup = classical_time / quantum_time
             
             report.append(f"| {seq_len} | {classical_time:.2f} | {quantum_time:.2f} | {error:.2f}% | {speedup:.2f}x |")
         
         report.append("")
-    
-    # Summary
-    report.append("## Phase 2 Summary")
+
+    report.append("## Acceleration Benchmark Summary")
     report.append("")
     report.append("✅ **Completed Implementations:**")
     report.append("- Advanced sampling strategies (QMC, learned importance, control variates)")
@@ -492,12 +484,12 @@ def generate_benchmark_report(results: Dict[str, Any]) -> str:
     report.append("- Production-ready quantum transformer blocks")
     report.append("- Comprehensive error mitigation techniques")
     report.append("")
-    
+
     return "\n".join(report)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Phase 2 Q-Transformers Comprehensive Benchmark")
+    parser = argparse.ArgumentParser(description="Q-Transformers Acceleration Benchmarks")
     parser.add_argument("--batch_size", type=int, default=4, help="Batch size for testing")
     parser.add_argument("--seq_len", type=int, default=64, help="Sequence length for testing")
     parser.add_argument("--embed_dim", type=int, default=256, help="Embedding dimension")
@@ -506,11 +498,10 @@ def main():
     parser.add_argument("--skip_scaling", action="store_true", help="Skip scaling analysis")
     args = parser.parse_args()
     
-    print("🚀 Q-Transformers Phase 2 Comprehensive Benchmark")
+    print("🚀 Q-Transformers Acceleration Benchmark")
     print("=" * 60)
     print()
     
-    # Initialize memory profiler
     profiler = MemoryProfiler()
     profiler.start_profiling()
     
@@ -546,22 +537,20 @@ def main():
         return 1
     
     finally:
-        # Stop profiling and get memory report
         memory_report = profiler.stop_profiling()
         all_results["memory_profile"] = memory_report
     
-    # Generate and save report
     report = generate_benchmark_report(all_results)
     
-    report_path = os.path.join(args.output_dir, "phase2_benchmark_report.md")
+    report_path = os.path.join(args.output_dir, "acceleration_benchmark_report.md")
     with open(report_path, 'w') as f:
         f.write(report)
     
     print("\n" + "="*60)
-    print("📊 PHASE 2 BENCHMARK COMPLETE")
+    print("📊 ACCELERATION BENCHMARK COMPLETE")
     print("="*60)
     print(f"📄 Report saved to: {report_path}")
-    print("\n🎉 Phase 2 implementations are ready for production use!")
+    print("\n🎉 Acceleration benchmarks completed!")
     
     return 0
 

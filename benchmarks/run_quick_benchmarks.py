@@ -2,6 +2,7 @@ import argparse
 import tracemalloc
 import time
 import argparse
+import math
 import gc
 import psutil
 import os
@@ -130,7 +131,7 @@ def bench_once(B: int, N: int, D: int, samples: int, device: str, seed: int = 13
     # Via functional API backend toggle (sanity check parity)
     tracemalloc.start()
     t0 = time.perf_counter()
-    H_api = quantum_attention(Q, K, V, top_k=samples, backend="phase0-proto")
+    H_api = quantum_attention(Q, K, V, top_k=samples, backend="prototype")
     t_api = (time.perf_counter() - t0) * 1000.0
     _, peak_api = tracemalloc.get_traced_memory()
     tracemalloc.stop()
@@ -190,7 +191,7 @@ def bench_once(B: int, N: int, D: int, samples: int, device: str, seed: int = 13
             "seed": seed,
         },
         {
-            "backend": "phase0-proto",
+            "backend": "prototype",
             "B": B,
             "N": N,
             "D": D,
@@ -223,7 +224,7 @@ def bench_once(B: int, N: int, D: int, samples: int, device: str, seed: int = 13
             "seed": seed,
         },
         {
-            "backend": "phase0-proto(API)",
+            "backend": "prototype(API)",
             "B": B,
             "N": N,
             "D": D,
@@ -271,7 +272,7 @@ def bench_once(B: int, N: int, D: int, samples: int, device: str, seed: int = 13
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Phase 0 toy benchmark for quantum-inspired attention prototype")
+    parser = argparse.ArgumentParser(description="Quick attention benchmarks for quantum-inspired methods")
     parser.add_argument("--batch", type=int, default=2)
     parser.add_argument("--seq", type=int, default=64)
     parser.add_argument("--dim", type=int, default=64)

@@ -63,7 +63,7 @@ class QuantumTransformerBlock(nn.Module):
         
         # Default quantum configuration
         self.quantum_config = quantum_config or {
-            "backend": "phase0-proto",
+            "backend": "prototype",
             "num_samples": 32,
             "use_advanced_sampling": True,
             "use_error_mitigation": True,
@@ -83,11 +83,9 @@ class QuantumTransformerBlock(nn.Module):
         self.linear1 = nn.Linear(d_model, dim_feedforward)
         self.linear2 = nn.Linear(dim_feedforward, d_model)
         
-        # Layer normalization
         self.norm1 = nn.LayerNorm(d_model, eps=layer_norm_eps)
         self.norm2 = nn.LayerNorm(d_model, eps=layer_norm_eps)
-        
-        # Dropout
+
         self.dropout = nn.Dropout(dropout)
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)

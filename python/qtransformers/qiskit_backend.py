@@ -164,11 +164,9 @@ class QiskitQuantumBackend:
         self.num_qubits = num_qubits
         self.shots = shots
         self.noise_model = noise_model
-        
-        # Initialize backend
+
         self.backend = self._get_backend()
         
-        # Create quantum attention circuit
         self.attention_circuit = QuantumAttentionCircuit(
             num_qubits=num_qubits,
             depth=3,
@@ -181,7 +179,6 @@ class QiskitQuantumBackend:
         if self.backend_name == "aer_simulator":
             backend = AerSimulator()
         elif self.backend_name.startswith("ibmq"):
-            # Try to load IBM Quantum backend
             try:
                 IBMQ.load_account()
                 provider = IBMQ.get_provider()

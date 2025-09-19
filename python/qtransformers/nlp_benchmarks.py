@@ -673,7 +673,7 @@ def create_quantum_nlp_benchmark(
     
     if quantum_config is None:
         quantum_config = {
-            "backend": "phase0-proto",
+            "backend": "prototype",
             "num_samples": 32,
             "use_advanced_sampling": True,
             "use_error_mitigation": True

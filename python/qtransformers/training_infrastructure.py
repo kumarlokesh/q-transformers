@@ -46,7 +46,7 @@ class TrainingConfig:
     
     # Quantum configuration
     quantum_config: Dict[str, Any] = field(default_factory=lambda: {
-        "backend": "phase0-proto",
+        "backend": "prototype",
         "num_samples": 64,
         "use_advanced_sampling": True,
         "use_error_mitigation": True,

@@ -193,13 +193,12 @@ class QuantumModelServer:
                     "intermediate_size": 3072,
                     "max_position_embeddings": 512,
                     "quantum_config": {
-                        "backend": "phase0-proto",
+                        "backend": "prototype",
                         "num_samples": 32,
                         "use_advanced_sampling": True
                     }
                 }
-            
-            # Create model
+
             self.model = ScalableQuantumTransformer(**model_config)
             
             # Load weights if available

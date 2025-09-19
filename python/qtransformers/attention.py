@@ -6,14 +6,24 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional, Tuple
+import numpy as np
+
+# Optional Rust backend (PyO3 extension)
+try:
+    from qtransformers_core import classical_attention_rs, quantum_attention_rs
+    HAS_RUST_CORE = True
+except Exception:  # Module not built/installed or platform issue
+    classical_attention_rs = None  # type: ignore
+    quantum_attention_rs = None  # type: ignore
+    HAS_RUST_CORE = False
 
 
 class QuantumAttentionLayer(nn.Module):
     """
     Quantum-inspired multi-head attention layer.
     
-    This is a placeholder implementation that will be developed in Phase 2.
-    Currently provides the same interface as nn.MultiheadAttention for compatibility.
+    This is a baseline implementation that mirrors the nn.MultiheadAttention interface
+    for compatibility. Specialized kernels can be enabled via optional backends.
     """
     
     def __init__(
@@ -71,8 +81,7 @@ class QuantumAttentionLayer(nn.Module):
         Returns:
             Attention output and optional attention weights
         """
-        # Placeholder implementation - classical attention for now
-        # Will be replaced with quantum-inspired implementation in Phase 2
+        # Baseline: classical attention; optional quantum-inspired backends are available
         
         if self.batch_first:
             query = query.transpose(0, 1)
@@ -182,16 +191,11 @@ class QuantumMultiheadAttention(nn.Module):
         self.batch_first = batch_first
         
         assert embed_dim % num_heads == 0, f"embed_dim ({embed_dim}) must be divisible by num_heads ({num_heads})"
-        
-        # Linear projections for Q, K, V
+
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.k_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-        
-        # Output projection
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-        
-        # Dropout
         self.dropout_layer = nn.Dropout(dropout)
         
         # Per-head quantum configurations
@@ -277,16 +281,26 @@ class QuantumMultiheadAttention(nn.Module):
                 k_b = k_h[:, b, :]  # (S, head_dim)
                 v_b = v_h[:, b, :]  # (S, head_dim)
                 
-                # Use quantum-inspired attention prototype
-                out_b = quantum_inspired_attention_prototype(
-                    q_b.unsqueeze(0),  # Add batch dim
-                    k_b.unsqueeze(0),  # Add batch dim  
-                    v_b.unsqueeze(0),  # Add batch dim
-                    num_samples=config["num_samples"],
-                    sampling_strategy=config["sampling_strategy"],
-                    adaptive_samples=self.adaptive_samples,
-                    control_variate=config["control_variate"]
-                ).squeeze(0)  # Remove batch dim
+                # Use selected backend: rust-* routes through quantum_attention for speed
+                if self.quantum_backend in {"rust-classical", "rust-quantum", "classical", "quantum-sim", "quantum-hw", "prototype"}:
+                    out_b = quantum_attention(
+                        q_b.unsqueeze(0),
+                        k_b.unsqueeze(0),
+                        v_b.unsqueeze(0),
+                        top_k=self.num_samples,
+                        backend=self.quantum_backend,
+                    ).squeeze(0)
+                else:
+                    # Fallback to prototype strategies for per-head variations
+                    out_b = quantum_inspired_attention_prototype(
+                        q_b.unsqueeze(0),  # Add batch dim
+                        k_b.unsqueeze(0),  # Add batch dim  
+                        v_b.unsqueeze(0),  # Add batch dim
+                        num_samples=config["num_samples"],
+                        sampling_strategy=config["sampling_strategy"],
+                        adaptive_samples=self.adaptive_samples,
+                        control_variate=config["control_variate"]
+                    ).squeeze(0)  # Remove batch dim
                 
                 batch_outputs.append(out_b)
                 
@@ -307,26 +321,95 @@ class QuantumMultiheadAttention(nn.Module):
             if need_weights:
                 head_weight = torch.stack(batch_weights, dim=0)  # (N, L, S)
                 head_weights.append(head_weight)
-        
-        # Concatenate heads: (L, N, E)
+
         attn_output = torch.cat(head_outputs, dim=-1)
-        
-        # Output projection
         attn_output = self.out_proj(attn_output)
         attn_output = self.dropout_layer(attn_output)
         
         if self.batch_first:
             attn_output = attn_output.transpose(0, 1)
         
-        # Process attention weights
         attn_weights = None
         if need_weights and head_weights:
-            # Stack heads: (N, num_heads, L, S)
             attn_weights = torch.stack(head_weights, dim=1)
             if average_attn_weights:
                 attn_weights = attn_weights.mean(dim=1)  # (N, L, S)
         
         return attn_output, attn_weights
+
+
+def _to_numpy_2d_fp32(x: torch.Tensor) -> np.ndarray:
+    """Ensure tensor is 2D, on CPU, float32 NumPy array."""
+    if x.dim() == 3:
+        assert x.size(0) == 1, "Expected batch size 1 for 3D input; use batched wrapper"
+        x = x.squeeze(0)
+    assert x.dim() == 2, f"Expected 2D tensor, got shape {tuple(x.shape)}"
+    if x.dtype != torch.float32:
+        x = x.to(torch.float32)
+    if x.is_cuda:
+        x = x.cpu()
+    return x.contiguous().numpy()
+
+
+def _from_numpy_like(x: np.ndarray, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
+    t = torch.from_numpy(x).to(dtype)
+    return t.to(device)
+
+
+def _rust_classical_attention(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor, top_k: int) -> torch.Tensor:
+    """Batch-friendly wrapper over Rust classical top-k attention.
+    Expects tensors shaped (B, N, D) or (N, D). Returns same shape as V.
+    """
+    if not HAS_RUST_CORE:
+        raise RuntimeError("Rust core not available. Build it with `maturin develop -m rust-core/Cargo.toml`. ")
+
+    orig_device = V.device
+    orig_dtype = V.dtype
+
+    if Q.dim() == 2:
+        q_np = _to_numpy_2d_fp32(Q)
+        k_np = _to_numpy_2d_fp32(K)
+        v_np = _to_numpy_2d_fp32(V)
+        out_np = classical_attention_rs(q_np, k_np, v_np, int(top_k))
+        return _from_numpy_like(out_np, orig_device, orig_dtype)
+
+    assert Q.dim() == 3 and K.dim() == 3 and V.dim() == 3, "Expected (B, N, D) tensors"
+    B = Q.size(0)
+    outs = []
+    for b in range(B):
+        q_np = _to_numpy_2d_fp32(Q[b])
+        k_np = _to_numpy_2d_fp32(K[b])
+        v_np = _to_numpy_2d_fp32(V[b])
+        out_np = classical_attention_rs(q_np, k_np, v_np, int(top_k))
+        outs.append(_from_numpy_like(out_np, orig_device, orig_dtype))
+    return torch.stack(outs, dim=0)
+
+
+def _rust_quantum_attention(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor, top_k: int) -> torch.Tensor:
+    """Batch-friendly wrapper over Rust sampling-based attention."""
+    if not HAS_RUST_CORE:
+        raise RuntimeError("Rust core not available. Build it with `maturin develop -m rust-core/Cargo.toml`. ")
+
+    orig_device = V.device
+    orig_dtype = V.dtype
+
+    if Q.dim() == 2:
+        q_np = _to_numpy_2d_fp32(Q)
+        k_np = _to_numpy_2d_fp32(K)
+        v_np = _to_numpy_2d_fp32(V)
+        out_np = quantum_attention_rs(q_np, k_np, v_np, int(top_k))
+        return _from_numpy_like(out_np, orig_device, orig_dtype)
+
+    assert Q.dim() == 3 and K.dim() == 3 and V.dim() == 3, "Expected (B, N, D) tensors"
+    B = Q.size(0)
+    outs = []
+    for b in range(B):
+        q_np = _to_numpy_2d_fp32(Q[b])
+        k_np = _to_numpy_2d_fp32(K[b])
+        v_np = _to_numpy_2d_fp32(V[b])
+        out_np = quantum_attention_rs(q_np, k_np, v_np, int(top_k))
+        outs.append(_from_numpy_like(out_np, orig_device, orig_dtype))
+    return torch.stack(outs, dim=0)
 
 
 def quantum_attention(
@@ -338,32 +421,38 @@ def quantum_attention(
 ) -> torch.Tensor:
     """
     Functional interface for quantum-inspired attention.
-    
+
     Args:
         Q: Query tensor of shape (..., seq_len, d_model)
         K: Key tensor of shape (..., seq_len, d_model)
         V: Value tensor of shape (..., seq_len, d_model)
         top_k: Number of top attention weights to consider
-        backend: Attention backend ("classical", "quantum-sim", "quantum-hw")
+        backend: Attention backend ("classical", "quantum-sim", "quantum-hw", "prototype", "rust-classical", "rust-quantum")
         
     Returns:
         Attention output tensor of same shape as V
     """
-    # Placeholder implementation
-    # Will integrate with Rust backend in Phase 2
+    # Dispatch by backend
     
     if backend == "classical":
         # Classical efficient attention approximation
         return _classical_efficient_attention(Q, K, V, top_k)
+    elif backend == "rust-classical":
+        return _rust_classical_attention(Q, K, V, top_k)
     elif backend == "quantum-sim":
-        # Quantum simulation (to be implemented in Phase 1)
+        # Quantum simulation via qsim backend
         return _quantum_sim_attention(Q, K, V, top_k)
     elif backend == "quantum-hw":
-        # Real quantum hardware (to be implemented in Phase 4)
+        # Real quantum hardware (future hardware backends)
         return _quantum_hw_attention(Q, K, V, top_k)
     elif backend == "phase0-proto":
-        # Phase 0 prototype approximation via sampling
+        # Backward-compat alias for prototype approximation
         return quantum_inspired_attention_prototype(Q, K, V, num_samples=max(1, top_k))
+    elif backend == "prototype":
+        # Prototype approximation via sampling (alias)
+        return quantum_inspired_attention_prototype(Q, K, V, num_samples=max(1, top_k))
+    elif backend == "rust-quantum":
+        return _rust_quantum_attention(Q, K, V, top_k)
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
@@ -409,12 +498,12 @@ def _quantum_sim_attention(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor, to
         return output
         
     except ImportError:
-        # Fall back to classical if qsim not available
+        # Fall back to classical if qsim is not available
         return _classical_efficient_attention(Q, K, V, top_k)
 
 
 def _quantum_hw_attention(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor, top_k: int) -> torch.Tensor:
-    """Quantum hardware attention (placeholder - to be implemented in Phase 4)."""
+    """Quantum hardware attention (future hardware backends)."""
     # For now, fall back to classical implementation  
     return _classical_efficient_attention(Q, K, V, top_k)
 

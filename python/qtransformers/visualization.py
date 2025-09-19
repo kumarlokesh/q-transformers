@@ -12,11 +12,45 @@ import warnings
 # Suppress matplotlib warnings in headless environments
 warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib')
 
+def exact_softmax_attention(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor) -> torch.Tensor:
+    """Exact scaled dot-product attention (no masking). Q,K,V: (B, N, D)."""
+    d = Q.shape[-1]
+    logits = torch.matmul(Q, K.transpose(-2, -1)) / (d ** 0.5)
+    probs = torch.softmax(logits, dim=-1)
+    return torch.matmul(probs, V)
+
+
+def performer_attention(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor, num_features: int = 32) -> torch.Tensor:
+    """Performer approximation using random Fourier features.
+    Complexity: O(n * num_features * d) instead of O(n^2 * d).
+    """
+    B, N, D = Q.shape
+    device = Q.device
+
+    # Random feature matrix (in practice this would be optimized)
+    torch.manual_seed(42)
+    omega = torch.randn(D, num_features, device=device) / (D ** 0.5)
+
+    def feature_map(x):
+        x_proj = torch.matmul(x, omega)  # (B, N, num_features)
+        x_norm = torch.sum(x**2, dim=-1, keepdim=True) / 2  # (B, N, 1)
+        return torch.exp(x_proj - x_norm)  # (B, N, num_features)
+
+    Qp = feature_map(Q)
+    Kp = feature_map(K)
+
+    KV = torch.matmul(Kp.transpose(-2, -1), V)  # (B, num_features, D)
+    K_sum = torch.sum(Kp, dim=-2, keepdim=True)  # (B, 1, num_features)
+
+    numerator = torch.matmul(Qp, KV)  # (B, N, D)
+    denominator = torch.matmul(Qp, K_sum.transpose(-2, -1)) + 1e-8  # (B, N, 1)
+    return numerator / denominator
+
 def plot_attention_comparison(
     Q: torch.Tensor,
     K: torch.Tensor, 
     V: torch.Tensor,
-    backends: List[str] = ["exact", "phase0-proto", "performer", "quantum-sim"],
+    backends: List[str] = ["exact", "prototype", "performer", "quantum-sim"],
     save_path: Optional[str] = None
 ) -> Dict[str, torch.Tensor]:
     """
@@ -31,7 +65,6 @@ def plot_attention_comparison(
         Dict mapping backend names to attention weights
     """
     from . import quantum_attention
-    from ..benchmarks.run_phase0_toy import exact_softmax_attention, performer_attention
     
     B, N, D = Q.shape
     device = Q.device
@@ -46,7 +79,7 @@ def plot_attention_comparison(
             weights = torch.softmax(logits, dim=-1)
             attention_weights[backend] = weights[0].cpu().numpy()  # Take first batch
             
-        elif backend in ["phase0-proto", "quantum-sim"]:
+        elif backend in ["prototype", "quantum-sim"]:
             try:
                 _ = quantum_attention(Q, K, V, top_k=16, backend=backend)
                 # For visualization, we need to extract attention weights
@@ -131,7 +164,7 @@ def plot_entropy_comparison(
     Q: torch.Tensor,
     K: torch.Tensor,
     V: torch.Tensor, 
-    backends: List[str] = ["exact", "phase0-proto", "performer"],
+    backends: List[str] = ["exact", "prototype", "performer"],
     save_path: Optional[str] = None
 ) -> Dict[str, Dict[str, float]]:
     """

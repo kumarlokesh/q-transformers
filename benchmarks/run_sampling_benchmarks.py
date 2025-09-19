@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Comprehensive Phase 1 Benchmark for Q-Transformers
+Comprehensive Sampling Benchmark for Q-Transformers
 
-Tests all Phase 1 improvements including:
+Tests the following components:
 - Advanced sampling strategies (stratified, adaptive, control variates)
 - QuantumMultiheadAttention module
 - MPS quantum simulation
@@ -83,8 +83,8 @@ def performer_attention(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor, m: in
     return numerator / (denominator + 1e-8)
 
 
-class Phase1ComprehensiveBenchmark:
-    """Comprehensive benchmark suite for Phase 1 improvements."""
+class SamplingBenchmarkSuite:
+    """Comprehensive benchmark suite for sampling and attention components."""
     
     def __init__(self):
         self.profiler = AdvancedMemoryProfiler()
@@ -335,7 +335,7 @@ class Phase1ComprehensiveBenchmark:
     def run_comprehensive_benchmark(self, args) -> Dict[str, Any]:
         """Run the full comprehensive benchmark suite."""
         
-        print("🚀 Starting Phase 1 Comprehensive Benchmark")
+        print("🚀 Starting Comprehensive Sampling Benchmark")
         print("=" * 50)
         
         results = {
@@ -346,7 +346,7 @@ class Phase1ComprehensiveBenchmark:
                 "num_samples": args.samples,
                 "device": "cpu",
             },
-            "phase1_improvements": {}
+            "sampling_suite": {}
         }
         
         # Generate test data
@@ -357,7 +357,7 @@ class Phase1ComprehensiveBenchmark:
         # 1. Sampling Strategies Benchmark
         print("\n📊 Benchmarking Advanced Sampling Strategies...")
         sampling_results = self.benchmark_sampling_strategies(Q, K, V, args.samples)
-        results["phase1_improvements"]["sampling_strategies"] = sampling_results
+        results["sampling_suite"]["sampling_strategies"] = sampling_results
         
         print("Sampling Strategy Results:")
         for strategy, metrics in sampling_results.items():
@@ -373,7 +373,7 @@ class Phase1ComprehensiveBenchmark:
             embed_dim=args.dim,
             num_heads=8
         )
-        results["phase1_improvements"]["multihead_attention"] = multihead_results
+        results["sampling_suite"]["multihead_attention"] = multihead_results
         
         print("Multi-head Attention Comparison:")
         print(f"  Standard    | Latency: {multihead_results['standard_attention']['latency_ms']:.1f}ms | "
@@ -385,7 +385,7 @@ class Phase1ComprehensiveBenchmark:
         # 3. MPS Quantum Simulation Benchmark
         print("\n⚛️  Benchmarking MPS Quantum Simulation...")
         mps_results = self.benchmark_mps_simulation(Q, K, V)
-        results["phase1_improvements"]["mps_simulation"] = mps_results
+        results["sampling_suite"]["mps_simulation"] = mps_results
         
         print("MPS Simulation Results:")
         print(f"  Standard Sim | Latency: {mps_results['standard_simulation']['latency_ms']:.1f}ms | "
@@ -398,13 +398,13 @@ class Phase1ComprehensiveBenchmark:
         if args.scaling:
             print("\n📈 Running Scaling Analysis...")
             scaling_results = self.benchmark_scaling_analysis()
-            results["phase1_improvements"]["scaling_analysis"] = scaling_results
+            results["sampling_suite"]["scaling_analysis"] = scaling_results
             
             print("Scaling Analysis Complete - see results for details")
         
         # Summary
         print("\n" + "=" * 50)
-        print("🎯 Phase 1 Benchmark Summary")
+        print("🎯 Sampling Benchmark Summary")
         print("=" * 50)
         
         best_sampling = min(sampling_results.items(), 
@@ -421,7 +421,7 @@ class Phase1ComprehensiveBenchmark:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Phase 1 Comprehensive Benchmark")
+    parser = argparse.ArgumentParser(description="Comprehensive Sampling Benchmark")
     parser.add_argument("--batch", type=int, default=2, help="Batch size")
     parser.add_argument("--seq", type=int, default=64, help="Sequence length")
     parser.add_argument("--dim", type=int, default=128, help="Model dimension")
@@ -435,7 +435,7 @@ def main():
     torch.manual_seed(42)
     
     # Run benchmark
-    benchmark = Phase1ComprehensiveBenchmark()
+    benchmark = SamplingBenchmarkSuite()
     results = benchmark.run_comprehensive_benchmark(args)
     
     # Save results
@@ -444,7 +444,7 @@ def main():
             json.dump(results, f, indent=2)
         print(f"\nResults saved to {args.output}")
     
-    print("\n✅ Phase 1 Comprehensive Benchmark Complete!")
+    print("\n✅ Sampling Benchmark Complete!")
 
 
 if __name__ == "__main__":

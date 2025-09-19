@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Example: Deploying Quantum Transformers in Production
+Example: Deploying Quantum Transformers
 
 This script demonstrates how to deploy trained quantum transformers
 using the production-ready deployment infrastructure.

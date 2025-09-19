@@ -49,12 +49,16 @@ from .cuda_kernels import (
     GPUMemoryOptimizer
 )
 
-from .qiskit_backend import (
-    QiskitQuantumBackend,
-    QuantumAttentionCircuit,
-    QuantumErrorCorrection,
-    HybridQuantumClassical
-)
+try:
+    from .qiskit_backend import (
+        QiskitQuantumBackend,
+        QuantumAttentionCircuit,
+        QuantumErrorCorrection,
+        HybridQuantumClassical
+    )
+except Exception:
+    # Optional dependency; backend available when qiskit is installed
+    pass
 
 from .quantum_transformer_blocks import (
     QuantumTransformerBlock,
