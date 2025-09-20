@@ -18,6 +18,26 @@ Performance and accuracy benchmarks for Q-Transformers.
 
 ## Usage
 
+### Docker-based (Recommended)
+
+```bash
+# Quick benchmarks
+make bench-quick
+
+# Sampling benchmarks  
+make bench-sampling
+
+# Full evaluation suite
+make bench-full
+
+# Custom parameters
+make shell
+# Inside container:
+python benchmarks/run_quick_benchmarks.py --batch 2 --seq 64 --dim 64 --samples 32 --device cpu
+```
+
+### Local Development
+
 ```bash
 # Quick benchmarks
 python benchmarks/run_quick_benchmarks.py --batch 2 --seq 64 --dim 64 --samples 32 --device cpu
@@ -32,24 +52,28 @@ python benchmarks/run_acceleration_benchmarks.py --batch_size 4 --seq_len 64 --e
 python benchmarks/run_full_evaluation_suite.py
 ```
 
-## Rust-backed backends
+## Rust-backed Backends
 
-If you build the optional Rust extension (`qtransformers_core`), you can select:
+The optional Rust extension (`qtransformers_core`) provides high-performance backends:
 
-- Backend `rust-classical` — classical top-k attention accelerated in Rust
-- Backend `rust-quantum` — sampling-based approximation in Rust
+- **`rust-classical`** — classical top-k attention accelerated in Rust
+- **`rust-quantum`** — sampling-based approximation in Rust
 
-Build and install the extension into your current Python environment:
+### Docker Setup (Recommended)
 
 ```bash
-# Prereqs (macOS):
-# 1) Install Rust toolchain: https://rustup.rs
-# 2) Install maturin: pip install maturin
+make build  # Rust extension built automatically
+make test   # Includes Rust backend tests
+```
 
-# From repo root, build and install the PyO3 extension into the active venv
+### Local Setup
+
+```bash
+# Prerequisites: Rust toolchain + maturin
+# See https://rustup.rs for Rust installation
+
+# Build and install the PyO3 extension
 maturin develop -m rust-core/Cargo.toml
-
-# Then (re)install the Python package if needed
 pip install -e python/
 ```
 

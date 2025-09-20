@@ -71,11 +71,6 @@ install: build
 .PHONY: test
 test: build
 	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "\
-		python -m venv /tmp/venv && \
-		source /tmp/venv/bin/activate && \
-		pip install --upgrade pip maturin pytest coverage && \
-		pip install -e python && \
-		maturin develop -m rust-core/Cargo.toml && \
 		echo '🧪 Running Python tests...' && \
 		python -m pytest tests/python/ -v && \
 		echo '🦀 Running Rust tests...' && \
@@ -85,37 +80,19 @@ test: build
 
 .PHONY: test-python
 test-python: build
-	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "\
-		python -m venv /tmp/venv && \
-		source /tmp/venv/bin/activate && \
-		pip install --upgrade pip maturin pytest && \
-		pip install -e python && \
-		maturin develop -m rust-core/Cargo.toml && \
-		python -m pytest tests/python/ -v"
+	$(DOCKER_RUN) $(DOCKER_TAG) python -m pytest tests/python/ -v
 
 .PHONY: test-rust
 test-rust: build
-	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "\
-		cd rust-core && cargo test"
+	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "cd rust-core && cargo test"
 
 .PHONY: test-integration
 test-integration: build
-	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "\
-		python -m venv /tmp/venv && \
-		source /tmp/venv/bin/activate && \
-		pip install --upgrade pip maturin pytest && \
-		pip install -e python && \
-		maturin develop -m rust-core/Cargo.toml && \
-		python -m pytest tests/integration/ -v"
+	$(DOCKER_RUN) $(DOCKER_TAG) python -m pytest tests/integration/ -v
 
 .PHONY: test-coverage
 test-coverage: build
 	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "\
-		python -m venv /tmp/venv && \
-		source /tmp/venv/bin/activate && \
-		pip install --upgrade pip maturin pytest coverage && \
-		pip install -e python && \
-		maturin develop -m rust-core/Cargo.toml && \
 		coverage run --source=python/qtransformers -m pytest tests/python/ && \
 		coverage report -m && \
 		coverage html"
@@ -141,33 +118,15 @@ check: format lint test
 # Benchmarks
 .PHONY: bench-quick
 bench-quick: build
-	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "\
-		python -m venv /tmp/venv && \
-		source /tmp/venv/bin/activate && \
-		pip install --upgrade pip maturin && \
-		pip install -e python && \
-		maturin develop -m rust-core/Cargo.toml && \
-		python benchmarks/run_quick_benchmarks.py --batch 2 --seq 32 --dim 64 --samples 16"
+	$(DOCKER_RUN) $(DOCKER_TAG) python benchmarks/run_quick_benchmarks.py --batch 2 --seq 32 --dim 64 --samples 16
 
 .PHONY: bench-sampling
 bench-sampling: build
-	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "\
-		python -m venv /tmp/venv && \
-		source /tmp/venv/bin/activate && \
-		pip install --upgrade pip maturin && \
-		pip install -e python && \
-		maturin develop -m rust-core/Cargo.toml && \
-		python benchmarks/run_sampling_benchmarks.py --batch 2 --seq 64 --dim 128 --samples 32"
+	$(DOCKER_RUN) $(DOCKER_TAG) python benchmarks/run_sampling_benchmarks.py --batch 2 --seq 64 --dim 128 --samples 32
 
 .PHONY: bench-full
 bench-full: build
-	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "\
-		python -m venv /tmp/venv && \
-		source /tmp/venv/bin/activate && \
-		pip install --upgrade pip maturin && \
-		pip install -e python && \
-		maturin develop -m rust-core/Cargo.toml && \
-		python benchmarks/run_full_evaluation_suite.py"
+	$(DOCKER_RUN) $(DOCKER_TAG) python benchmarks/run_full_evaluation_suite.py
 
 # Interactive development
 .PHONY: shell
@@ -176,13 +135,7 @@ shell: build
 
 .PHONY: jupyter
 jupyter: build
-	$(DOCKER_RUN_IT) -p 8888:8888 $(DOCKER_TAG) bash -c "\
-		python -m venv /tmp/venv && \
-		source /tmp/venv/bin/activate && \
-		pip install --upgrade pip maturin && \
-		pip install -e python && \
-		maturin develop -m rust-core/Cargo.toml && \
-		jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root"
+	$(DOCKER_RUN_IT) -p 8888:8888 $(DOCKER_TAG) jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root
 
 # Debugging
 .PHONY: debug-env

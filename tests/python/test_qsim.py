@@ -45,9 +45,9 @@ class TestQuantumAttentionSimulator:
         
     def test_quantum_measurement_probabilistic(self):
         """Test quantum measurement produces valid probabilities."""
-        amplitudes = torch.tensor([[0.6, 0.8, 0.0]])  # Simple amplitude state
+        amplitudes = torch.tensor([[[0.6, 0.8, 0.0]]])  # Simple amplitude state
         
-        probs = self.simulator._quantum_measure(amplitudes, num_samples=100, noise_level=0.0)
+        probs = self.simulator._quantum_measure(amplitudes, num_samples=100)
         
         prob_sums = torch.sum(probs, dim=-1)
         torch.testing.assert_close(prob_sums, torch.ones_like(prob_sums), rtol=0.0, atol=1e-6)
@@ -55,17 +55,17 @@ class TestQuantumAttentionSimulator:
         assert torch.all(probs >= 0)
         
     def test_noise_effect(self):
-        """Test that noise affects the measurement."""
-        amplitudes = torch.ones(1, 4) / 2  # Uniform amplitudes
+        """Test that noise affects the measurement.""" 
+        Q = torch.ones(1, 1, 4) / 2  # Uniform query
+        K = torch.ones(1, 1, 4) / 2  # Uniform key
+        V = torch.ones(1, 1, 4) / 2  # Uniform value
         
-        # Measure without noise
-        probs_clean = self.simulator._quantum_measure(amplitudes, num_samples=1000, noise_level=0.0)
-        
-        # Measure with noise  
-        probs_noisy = self.simulator._quantum_measure(amplitudes, num_samples=1000, noise_level=0.1)
+        # Test with different noise levels
+        output_clean, _ = self.simulator.simulate_attention(Q, K, V, num_samples=1000, noise_level=0.0)
+        output_noisy, _ = self.simulator.simulate_attention(Q, K, V, num_samples=1000, noise_level=0.1)
         
         # Results should be different (with high probability)
-        assert not torch.allclose(probs_clean, probs_noisy, atol=0.05)
+        assert not torch.allclose(output_clean, output_noisy, atol=0.05)
 
 
 class TestAmplitudeEncode:

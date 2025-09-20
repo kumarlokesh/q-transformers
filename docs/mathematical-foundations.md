@@ -1,8 +1,8 @@
-# Phase 0 - Mathematical Foundations & Proof-of-Concept
+# Mathematical Foundations
 
 ## Overview
 
-This document outlines the mathematical foundations for quantum-inspired attention mechanisms in Q-Transformers. Our goal is to establish a solid theoretical basis before implementation.
+This document outlines the mathematical foundations for quantum-inspired attention mechanisms in Q-Transformers. It provides the theoretical basis underlying our quantum attention algorithms.
 
 ## Quantum-Inspired Attention Algorithm
 

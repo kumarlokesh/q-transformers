@@ -77,14 +77,24 @@ COPY README.md /workspace/README.md
 # Create entrypoint script for consistent venv handling
 RUN echo '#!/bin/bash\n\
 set -e\n\
+\n\
+# Setup venv once if it doesn'\''t exist\n\
 if [ ! -d "/tmp/venv" ]; then\n\
+    echo "🔧 Setting up development environment..."\n\
     python -m venv /tmp/venv\n\
     source /tmp/venv/bin/activate\n\
     pip install --upgrade pip maturin pytest coverage\n\
+    echo "📦 Installing Python package..."\n\
     pip install -e python\n\
+    echo "🦀 Building Rust extension..."\n\
     maturin develop -m rust-core/Cargo.toml\n\
+    echo "✅ Environment ready!"\n\
+else\n\
+    # Just activate existing venv\n\
+    source /tmp/venv/bin/activate\n\
 fi\n\
-source /tmp/venv/bin/activate\n\
+\n\
+# Execute the command\n\
 exec "$@"' > /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

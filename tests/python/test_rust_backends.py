@@ -9,12 +9,19 @@ def _classical_topk_python(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor, k:
     scores = torch.matmul(Q, K.transpose(-2, -1)) / (Q.shape[-1] ** 0.5)
     top_scores, top_indices = torch.topk(scores, k=min(k, scores.shape[-1]), dim=-1)
     top_weights = torch.softmax(top_scores, dim=-1)
+    
+    # Gather top values using advanced indexing
+    batch_size, seq_len, _ = V.shape
     d_model = V.shape[-1]
-    top_values = torch.gather(
-        V.unsqueeze(-3).expand(-1, -1, -1, d_model),
-        dim=-2,
-        index=top_indices.unsqueeze(-1).expand(-1, -1, -1, d_model),
-    )
+    
+    # Expand indices for gathering
+    batch_indices = torch.arange(batch_size).view(-1, 1, 1).expand(-1, seq_len, k)
+    seq_indices = torch.arange(seq_len).view(1, -1, 1).expand(batch_size, -1, k)
+    
+    # Gather values: (batch_size, seq_len, k, d_model)
+    top_values = V[batch_indices, top_indices]
+    
+    # Apply attention weights and sum
     out = torch.sum(top_weights.unsqueeze(-1) * top_values, dim=-2)
     return out
 
