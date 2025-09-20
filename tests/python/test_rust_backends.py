@@ -1,18 +1,8 @@
-import os
 import pytest
 import torch
+import numpy as np
 
 from qtransformers import quantum_attention
-
-# Try importing the optional Rust extension
-try:
-    from qtransformers_core import classical_attention_rs, quantum_attention_rs  # type: ignore
-    HAS_RUST_CORE = True
-except Exception:
-    HAS_RUST_CORE = False
-
-
-pytestmark = pytest.mark.skipif(not HAS_RUST_CORE, reason="qtransformers_core not built; run `maturin develop -m rust-core/Cargo.toml`")
 
 
 def _classical_topk_python(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor, k: int) -> torch.Tensor:
@@ -29,6 +19,7 @@ def _classical_topk_python(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor, k:
     return out
 
 
+@pytest.mark.rust
 def test_rust_classical_shapes_and_parity():
     B, N, D = 1, 8, 16
     Q = torch.randn(B, N, D)
@@ -46,6 +37,7 @@ def test_rust_classical_shapes_and_parity():
     assert torch.allclose(out_rust, out_py, atol=1e-5, rtol=1e-5)
 
 
+@pytest.mark.rust
 def test_rust_quantum_sampling_shapes():
     B, N, D = 2, 10, 32
     Q = torch.randn(B, N, D)
@@ -57,9 +49,10 @@ def test_rust_quantum_sampling_shapes():
     assert torch.isfinite(out).all()
 
 
+@pytest.mark.rust
 def test_function_level_rs_bindings():
-    # Directly call PyO3 functions for a single matrix
-    import numpy as np
+    """Directly call PyO3 functions for a single matrix."""
+    from qtransformers_core import classical_attention_rs, quantum_attention_rs
 
     N, D = 6, 8
     Q = np.random.randn(N, D).astype(np.float32)

@@ -161,22 +161,6 @@ supremacy_results = verifier.verify_quantum_advantage(
 )
 ```
 
-## Architecture
-
-```
-q-transformers/
-├── qtransformers/          # Core library
-│   ├── attention.py        # Quantum attention mechanisms
-│   ├── models.py          # Production transformer models
-│   ├── training.py        # Distributed training system
-│   ├── deployment.py      # Production deployment tools
-│   ├── benchmarks.py      # GLUE/SuperGLUE evaluation
-│   └── backends/          # Quantum simulation backends
-├── examples/              # Usage examples
-├── tests/                 # Test suite
-└── docs/                  # Technical documentation
-```
-
 ## Technical Overview
 
 ### Core Components

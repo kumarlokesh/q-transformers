@@ -1,13 +1,16 @@
-# Dev image with Python + Rust toolchain for hybrid development
+# Optimized dev image with Python + Rust toolchain for hybrid development
 FROM python:3.11-slim
 
 ENV PIP_NO_CACHE_DIR=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     CARGO_HOME=/usr/local/cargo \
-    RUSTUP_HOME=/usr/local/rustup
+    RUSTUP_HOME=/usr/local/rustup \
+    PATH="/usr/local/cargo/bin:${PATH}"
 
-# System deps
+# ============================================================================
+# Layer 1: System dependencies
+# ============================================================================
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     git \
@@ -16,28 +19,73 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Rust via rustup
+# ============================================================================ 
+# Layer 2: Rust toolchain
+# ============================================================================
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
-ENV PATH="/usr/local/cargo/bin:${PATH}"
 
-# Python deps (CPU torch)
+# ============================================================================
+# Layer 3: Python base packages
+# ============================================================================
 RUN python -m pip install --upgrade pip setuptools wheel \
- && python -m pip install --index-url https://download.pytorch.org/whl/cpu torch \
- && python -m pip install maturin transformers numpy matplotlib seaborn jupyter pytest black isort flake8 mypy
+ && python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+
+# ============================================================================
+# Layer 4: Development tools
+# ============================================================================
+RUN python -m pip install \
+    maturin \
+    transformers \
+    numpy \
+    matplotlib \
+    seaborn \
+    jupyter \
+    pytest \
+    coverage \
+    black \
+    isort \
+    flake8 \
+    mypy
 
 WORKDIR /workspace
 
-# Copy minimal files first for layer caching
+# ============================================================================
+# Layer 5: Dependency manifests
+# ============================================================================
 COPY python/pyproject.toml /workspace/python/pyproject.toml
 COPY rust-core/Cargo.toml /workspace/rust-core/Cargo.toml
+COPY requirements.txt /workspace/requirements.txt
+
+# Pre-install Python dependencies based on pyproject.toml
+RUN python -m pip install -e /workspace/python || true
+
+# Pre-fetch Rust dependencies (without building)
+COPY rust-core/Cargo.lock /workspace/rust-core/Cargo.lock
+RUN cd /workspace/rust-core && cargo fetch || true
+
+# ============================================================================
+# Layer 6: Source code
+# ============================================================================
+COPY python/ /workspace/python/
+COPY rust-core/src/ /workspace/rust-core/src/
+COPY tests/ /workspace/tests/
+COPY benchmarks/ /workspace/benchmarks/
+COPY examples/ /workspace/examples/
+COPY Makefile /workspace/Makefile
 COPY README.md /workspace/README.md
 
-# Install Python package (editable) and prepare Rust workspace
-RUN python -m pip install -e /workspace/python
+# Create entrypoint script for consistent venv handling
+RUN echo '#!/bin/bash\n\
+set -e\n\
+if [ ! -d "/tmp/venv" ]; then\n\
+    python -m venv /tmp/venv\n\
+    source /tmp/venv/bin/activate\n\
+    pip install --upgrade pip maturin pytest coverage\n\
+    pip install -e python\n\
+    maturin develop -m rust-core/Cargo.toml\n\
+fi\n\
+source /tmp/venv/bin/activate\n\
+exec "$@"' > /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
 
-# Copy source (done later to leverage cache)
-COPY python/ /workspace/python/
-COPY rust-core/ /workspace/rust-core/
-
-# Default command shows versions
-CMD bash -lc "python -c 'import qtransformers as q; print(\"qtransformers\", q.__version__)' && rustc --version && cargo --version"
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["bash", "-c", "python -c 'import qtransformers as q; print(\"qtransformers\", q.__version__)' && rustc --version && cargo --version"]
