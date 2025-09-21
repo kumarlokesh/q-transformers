@@ -3,7 +3,7 @@ use numpy::{IntoPyArray, PyArray2, PyReadonlyArray2};
 use pyo3::prelude::*;
 use std::cmp::Ordering;
 
-use ndarray::{Array1};
+use ndarray::Array1;
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use rayon::prelude::*;
@@ -23,8 +23,10 @@ fn quantum_attention_rs(
     let seq_len = q.len_of(Axis(0));
     let d_model = q.len_of(Axis(1));
 
-    if k.len_of(Axis(0)) != seq_len || v.len_of(Axis(0)) != seq_len
-        || k.len_of(Axis(1)) != d_model || v.len_of(Axis(1)) != d_model
+    if k.len_of(Axis(0)) != seq_len
+        || v.len_of(Axis(0)) != seq_len
+        || k.len_of(Axis(1)) != d_model
+        || v.len_of(Axis(1)) != d_model
     {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "q, k, v must have shapes (seq_len, d_model) with matching dims",
@@ -47,10 +49,7 @@ fn quantum_attention_rs(
             // Amplitude encoding and probabilities: p_j ∝ exp(logit/2)^2 = exp(logit)
             // So p ∝ exp(logit). We'll compute stable softmax-like weights for sampling only.
             let max_logit = logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-            let mut weights: Vec<f32> = logits
-                .iter()
-                .map(|&x| (x - max_logit).exp())
-                .collect();
+            let mut weights: Vec<f32> = logits.iter().map(|&x| (x - max_logit).exp()).collect();
 
             let sum_w: f32 = weights.iter().sum();
             if !sum_w.is_finite() || sum_w <= 0.0 {
@@ -112,8 +111,10 @@ fn classical_attention_rs(
     let seq_len = q.len_of(Axis(0));
     let d_model = q.len_of(Axis(1));
 
-    if k.len_of(Axis(0)) != seq_len || v.len_of(Axis(0)) != seq_len
-        || k.len_of(Axis(1)) != d_model || v.len_of(Axis(1)) != d_model
+    if k.len_of(Axis(0)) != seq_len
+        || v.len_of(Axis(0)) != seq_len
+        || k.len_of(Axis(1)) != d_model
+        || v.len_of(Axis(1)) != d_model
     {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "q, k, v must have shapes (seq_len, d_model) with matching dims",
@@ -147,7 +148,10 @@ fn classical_attention_rs(
                 .iter()
                 .map(|&j| scores[j])
                 .fold(f32::NEG_INFINITY, f32::max);
-            let mut exp_scores: Vec<f32> = top_idx.iter().map(|&j| (scores[j] - max_top).exp()).collect();
+            let mut exp_scores: Vec<f32> = top_idx
+                .iter()
+                .map(|&j| (scores[j] - max_top).exp())
+                .collect();
             let sum_exp: f32 = exp_scores.iter().sum();
             if !sum_exp.is_finite() || sum_exp <= 0.0 {
                 return Array1::<f32>::zeros(d_model);

@@ -50,52 +50,38 @@ RUN python -m pip install \
 WORKDIR /workspace
 
 # ============================================================================
-# Layer 5: Dependency manifests
+# Layer 5: Dependency manifests ONLY (for caching)
 # ============================================================================
 COPY python/pyproject.toml /workspace/python/pyproject.toml
 COPY rust-core/Cargo.toml /workspace/rust-core/Cargo.toml
+COPY rust-core/Cargo.lock /workspace/rust-core/Cargo.lock
 COPY requirements.txt /workspace/requirements.txt
 
-# Pre-install Python dependencies based on pyproject.toml
-RUN python -m pip install -e /workspace/python || true
+# Create minimal Python package structure for installation
+RUN mkdir -p /workspace/python/qtransformers && echo "__version__ = '0.1.0'" > /workspace/python/qtransformers/__init__.py
 
-# Pre-fetch Rust dependencies (without building)
-COPY rust-core/Cargo.lock /workspace/rust-core/Cargo.lock
-RUN cd /workspace/rust-core && cargo fetch || true
+# Install Python dependencies (CACHED unless dependencies change)
+RUN python -m pip install -e /workspace/python
+
+# Pre-fetch Rust dependencies (CACHED unless Cargo.toml/lock changes)
+RUN mkdir -p /workspace/rust-core/src && echo "fn main() {}" > /workspace/rust-core/src/lib.rs
+RUN cd /workspace/rust-core && cargo fetch
 
 # ============================================================================
-# Layer 6: Source code
+# Layer 6: Source code (copied AFTER dependencies installed)
 # ============================================================================
 COPY python/ /workspace/python/
 COPY rust-core/src/ /workspace/rust-core/src/
+
+# Rebuild only the final package (fast since deps are cached)
+RUN python -m pip install -e /workspace/python --force-reinstall --no-deps
+RUN cd /workspace/rust-core && maturin build --release && pip install target/wheels/*.whl --force-reinstall
+
+# Copy remaining files (these changes don't affect dependencies)
 COPY tests/ /workspace/tests/
 COPY benchmarks/ /workspace/benchmarks/
 COPY examples/ /workspace/examples/
 COPY Makefile /workspace/Makefile
 COPY README.md /workspace/README.md
 
-# Create entrypoint script for consistent venv handling
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Setup venv once if it doesn'\''t exist\n\
-if [ ! -d "/tmp/venv" ]; then\n\
-    echo "🔧 Setting up development environment..."\n\
-    python -m venv /tmp/venv\n\
-    source /tmp/venv/bin/activate\n\
-    pip install --upgrade pip maturin pytest coverage\n\
-    echo "📦 Installing Python package..."\n\
-    pip install -e python\n\
-    echo "🦀 Building Rust extension..."\n\
-    maturin develop -m rust-core/Cargo.toml\n\
-    echo "✅ Environment ready!"\n\
-else\n\
-    # Just activate existing venv\n\
-    source /tmp/venv/bin/activate\n\
-fi\n\
-\n\
-# Execute the command\n\
-exec "$@"' > /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
-
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["bash", "-c", "python -c 'import qtransformers as q; print(\"qtransformers\", q.__version__)' && rustc --version && cargo --version"]

@@ -5,11 +5,12 @@ This module provides classical simulation of quantum operations used in
 quantum-inspired attention mechanisms.
 """
 
+from typing import Dict, List, Tuple
+
+import torch
+
 import torch
 import torch.nn.functional as F
-import numpy as np
-from typing import Optional, Dict, Any, List, Tuple
-
 
 class QuantumAttentionSimulator:
     """
@@ -57,7 +58,9 @@ class QuantumAttentionSimulator:
         
         # 2. Apply quantum noise/decoherence
         if noise_level > 0.0:
-            amplitudes = self._apply_quantum_noise(amplitudes, noise_level, temperature)
+            amplitudes = self._apply_quantum_noise(amplitudes,
+                noise_level,
+                temperature)
         
         # 3. Simulate quantum measurement
         attn_weights = self._quantum_measure(amplitudes, num_samples)
@@ -89,7 +92,10 @@ class QuantumAttentionSimulator:
         
         return amplitudes
     
-    def _apply_quantum_noise(self, amplitudes: torch.Tensor, noise_level: float, temperature: float = 0.0) -> torch.Tensor:
+    def _apply_quantum_noise(self,
+        amplitudes: torch.Tensor,
+        noise_level: float,
+        temperature: float = 0.0) -> torch.Tensor:
         """
         Apply realistic quantum noise models to amplitudes.
         
@@ -121,7 +127,9 @@ class QuantumAttentionSimulator:
         uniform = torch.ones_like(amplitudes) / amplitudes.shape[-1]
         return (1 - p) * amplitudes + p * uniform
     
-    def _amplitude_damping(self, amplitudes: torch.Tensor, gamma: float) -> torch.Tensor:
+    def _amplitude_damping(self,
+        amplitudes: torch.Tensor,
+        gamma: float) -> torch.Tensor:
         """Apply amplitude damping (energy relaxation)"""
         if gamma <= 0.0:
             return amplitudes
@@ -139,7 +147,10 @@ class QuantumAttentionSimulator:
         phase_noise = torch.randn_like(amplitudes) * gamma
         return amplitudes * torch.exp(1j * phase_noise).real  # Keep only real part for simplicity
     
-    def _thermal_noise(self, amplitudes: torch.Tensor, strength: float, temperature: float) -> torch.Tensor:
+    def _thermal_noise(self,
+        amplitudes: torch.Tensor,
+        strength: float,
+        temperature: float) -> torch.Tensor:
         """Apply thermal noise"""
         if strength <= 0.0:
             return amplitudes
@@ -149,7 +160,9 @@ class QuantumAttentionSimulator:
         noise = torch.randn_like(amplitudes) * strength * thermal_factor
         return torch.clamp(amplitudes + noise, min=0.0)
 
-    def _quantum_measure(self, amplitudes: torch.Tensor, num_samples: int) -> torch.Tensor:
+    def _quantum_measure(self,
+        amplitudes: torch.Tensor,
+        num_samples: int) -> torch.Tensor:
         """
         Simulate quantum measurement process with improved sampling.
         
@@ -181,7 +194,10 @@ class QuantumAttentionSimulator:
             
             # Convert samples back to probabilities
             sample_probs = torch.zeros_like(valid_probs)
-            sample_probs.scatter_add_(1, samples, torch.ones_like(samples, dtype=sample_probs.dtype))
+            sample_probs.scatter_add_(1,
+                samples,
+                torch.ones_like(samples,
+                dtype=sample_probs.dtype))
             sample_probs = sample_probs / num_samples
             
             # Place back in original tensor
@@ -246,7 +262,10 @@ def quantum_measure(
         # Sample and reconstruct distribution
         samples = torch.multinomial(probabilities, num_samples, replacement=True)
         measured_probs = torch.zeros_like(probabilities)
-        measured_probs.scatter_add_(0, samples, torch.ones_like(samples, dtype=torch.float))
+        measured_probs.scatter_add_(0,
+            samples,
+            torch.ones_like(samples,
+            dtype=torch.float))
         measured_probs = measured_probs / num_samples
         return measured_probs
     else:
@@ -287,17 +306,17 @@ class MatrixProductStateSimulator:
         Returns:
             MPS tensors representing the quantum attention state
         """
-        batch_size, seq_len, d_model = Q.shape
+        batch_size, seq_len, _d_model = Q.shape
         
         # Compute attention logits
-        logits = torch.matmul(Q, K.transpose(-2, -1)) / (d_model ** 0.5)
+        _logits = torch.matmul(Q, K.transpose(-2, -1)) / (d_model ** 0.5)
         
         # Convert to quantum amplitudes
-        amplitudes = torch.exp(logits / 2)
-        amplitudes = amplitudes / torch.norm(amplitudes, dim=-1, keepdim=True)
+        _amplitudes = torch.exp(logits / 2)
+        _amplitudes = amplitudes / torch.norm(amplitudes, _dim =-1, _keepdim =True)
         
         # Decompose into MPS representation
-        mps_tensors = self._tensor_decomposition(amplitudes)
+        _mps_tensors = self._tensor_decomposition(amplitudes)
         
         return mps_tensors
         
@@ -311,45 +330,45 @@ class MatrixProductStateSimulator:
         Returns:
             List of MPS tensors
         """
-        batch_size, seq_len1, seq_len2 = tensor.shape
-        mps_tensors = []
+        batch_size, seq_len1, _seq_len2 = tensor.shape
+        _mps_tensors = []
         
         # Reshape for MPS decomposition
-        current_tensor = tensor.reshape(batch_size, -1)
+        _current_tensor = tensor.reshape(batch_size, -1)
         
         # Sequential SVD decomposition
         for i in range(min(seq_len1, seq_len2) - 1):
             # Reshape current tensor for SVD
             if len(current_tensor.shape) == 2:
                 m, n = current_tensor.shape
-                reshaped = current_tensor.reshape(m, -1)
+                _reshaped = current_tensor.reshape(m, -1)
             else:
-                reshaped = current_tensor.reshape(current_tensor.shape[0], -1)
+                _reshaped = current_tensor.reshape(current_tensor.shape[0], -1)
             
             # Perform SVD
             U, S, V = torch.svd(reshaped)
             
             # Truncate based on bond dimension and threshold
-            bond_dim = min(self.max_bond_dim, len(S))
+            _bond_dim = min(self.max_bond_dim, len(S))
             
             # Find truncation point based on threshold
-            cumsum = torch.cumsum(S.flip(0), 0).flip(0)
-            total = cumsum[0]
-            keep_indices = cumsum / total > self.compression_threshold
+            _cumsum = torch.cumsum(S.flip(0), 0).flip(0)
+            _total = cumsum[0]
+            _keep_indices = cumsum / total > self.compression_threshold
             if keep_indices.any():
-                bond_dim = min(bond_dim, keep_indices.sum().item())
+                _bond_dim = min(bond_dim, keep_indices.sum().item())
             
             # Truncate tensors
-            U_trunc = U[:, :bond_dim]
-            S_trunc = S[:bond_dim]
-            V_trunc = V[:, :bond_dim]
+            _U_trunc = U[:, :bond_dim]
+            _S_trunc = S[:bond_dim]
+            _V_trunc = V[:, :bond_dim]
             
             # Store MPS tensor
-            mps_tensor = U_trunc * S_trunc.unsqueeze(0)
+            _mps_tensor = U_trunc * S_trunc.unsqueeze(0)
             mps_tensors.append(mps_tensor)
             
             # Continue with remaining tensor
-            current_tensor = V_trunc.transpose(-2, -1)
+            _current_tensor = V_trunc.transpose(-2, -1)
             
             if i == min(seq_len1, seq_len2) - 2:
                 mps_tensors.append(current_tensor)
@@ -375,16 +394,16 @@ class MatrixProductStateSimulator:
             Attention output
         """
         # Reconstruct probability distribution from MPS
-        probs = self._mps_to_probabilities(mps_tensors)
+        _probs = self._mps_to_probabilities(mps_tensors)
         
         # Apply quantum measurement
         if num_samples > 0:
-            measured_probs = self._sample_mps_measurement(probs, num_samples)
+            _measured_probs = self._sample_mps_measurement(probs, num_samples)
         else:
-            measured_probs = probs
+            _measured_probs = probs
         
         # Apply attention to values
-        output = torch.matmul(measured_probs, V)
+        _output = torch.matmul(measured_probs, V)
         
         return output
     
@@ -394,28 +413,28 @@ class MatrixProductStateSimulator:
             return torch.empty(0)
         
         # Contract MPS tensors
-        result = mps_tensors[0]
+        _result = mps_tensors[0]
         for tensor in mps_tensors[1:]:
             # Ensure proper matrix multiplication dimensions
             if result.dim() == 2 and tensor.dim() == 2:
-                result = torch.matmul(result, tensor)
+                _result = torch.matmul(result, tensor)
             else:
                 # Handle batch dimensions properly
-                result = torch.bmm(result.unsqueeze(0), tensor.unsqueeze(0)).squeeze(0)
+                _result = torch.bmm(result.unsqueeze(0), tensor.unsqueeze(0)).squeeze(0)
         
         # Convert amplitudes to probabilities
-        probs = result.abs() ** 2
+        _probs = result.abs() ** 2
         
         # Ensure proper shape for attention (batch_size, seq_len, seq_len)
         if probs.dim() == 2:
-            batch_size = probs.shape[0]
+            _batch_size = probs.shape[0]
             # Reconstruct square attention matrix
-            seq_len = int((probs.shape[1]) ** 0.5)
-            if seq_len * seq_len == probs.shape[1]:
-                probs = probs.view(batch_size, seq_len, seq_len)
+            _seq_len = int((probs.shape[1]) ** 0.5)
+            if seq_len * _seq_len == probs.shape[1]:
+                _probs = probs.view(batch_size, seq_len, seq_len)
         
         # Normalize
-        probs = probs / (torch.sum(probs, dim=-1, keepdim=True) + 1e-12)
+        _probs = probs / (torch.sum(probs, _dim =-1, _keepdim =True) + 1e-12)
         
         return probs
     
@@ -425,17 +444,20 @@ class MatrixProductStateSimulator:
         num_samples: int
     ) -> torch.Tensor:
         """Sample measurement from MPS probability distribution."""
-        batch_size = probs.shape[0]
-        seq_len = probs.shape[-1]
+        _batch_size = probs.shape[0]
+        _seq_len = probs.shape[-1]
         
-        measured_probs = torch.zeros_like(probs)
+        _measured_probs = torch.zeros_like(probs)
         
         for b in range(batch_size):
-            prob_row = probs[b]
+            _prob_row = probs[b]
             if prob_row.sum() > 1e-8:
-                samples = torch.multinomial(prob_row, num_samples, replacement=True)
-                sample_counts = torch.zeros_like(prob_row)
-                sample_counts.scatter_add_(0, samples, torch.ones_like(samples, dtype=prob_row.dtype))
+                _samples = torch.multinomial(prob_row, num_samples, _replacement =True)
+                _sample_counts = torch.zeros_like(prob_row)
+                sample_counts.scatter_add_(0,
+                    samples,
+                    torch.ones_like(samples,
+                    _dtype =prob_row.dtype))
                 measured_probs[b] = sample_counts / num_samples
         
         return measured_probs
@@ -454,16 +476,16 @@ class MatrixProductStateSimulator:
             return {"compression_ratio": 0.0, "memory_saving": 0.0}
         
         # Calculate total MPS memory
-        mps_memory = sum(tensor.numel() for tensor in mps_tensors)
+        _mps_memory = sum(tensor.numel() for tensor in mps_tensors)
         
         # Estimate full tensor memory (exponential)
         if len(mps_tensors) > 0:
-            approx_full_size = mps_tensors[0].shape[0] * (2 ** len(mps_tensors))
+            _approx_full_size = mps_tensors[0].shape[0] * (2 ** len(mps_tensors))
         else:
-            approx_full_size = 1
+            _approx_full_size = 1
         
-        compression_ratio = approx_full_size / (mps_memory + 1e-8)
-        memory_saving = 1.0 - (mps_memory / (approx_full_size + 1e-8))
+        _compression_ratio = approx_full_size / (mps_memory + 1e-8)
+        _memory_saving = 1.0 - (mps_memory / (approx_full_size + 1e-8))
         
         return {
             "mps_memory": mps_memory,

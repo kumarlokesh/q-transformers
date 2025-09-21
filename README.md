@@ -182,10 +182,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Documentation
 
-- [Mathematical Foundations](docs/phase0-mathematical-foundations.md)
-- [Phase 1 Achievements](docs/phase1-achievements.md)
-- [Phase 3 Achievements](docs/phase3-achievements.md)
-- [Research Paper Draft](docs/research_paper_draft.md)
+- [Mathematical Foundations](docs/mathematical-foundations.md)
+- [Core Architecture](docs/core-architecture.md)
+- [Production Deployment](docs/production-deployment.md)
+- [Advanced Features](docs/advanced-features.md)
 - [Benchmark Results](benchmarks/README.md)
 
 ---

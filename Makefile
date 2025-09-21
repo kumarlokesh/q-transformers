@@ -56,20 +56,19 @@ clean:
 	find . -name "*.pyc" -delete
 	find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
-# Installation
+# Installation (packages are built into Docker image)
 .PHONY: install
-install: build
-	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "\
-		python -m venv /tmp/venv && \
-		source /tmp/venv/bin/activate && \
-		pip install --upgrade pip && \
-		pip install maturin pytest && \
-		pip install -e python && \
-		maturin develop -m rust-core/Cargo.toml"
+install:
+	@echo "📦 Packages are built into Docker image"
+	@echo "ℹ️  Run 'make build' to build the image with all dependencies"
 
-# Testing targets
+# Testing targets (use existing image if available)
 .PHONY: test
-test: build
+test: 
+	@if ! docker image inspect $(DOCKER_TAG) >/dev/null 2>&1; then \
+		echo "Building Docker image..."; \
+		$(MAKE) build; \
+	fi
 	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "\
 		echo '🧪 Running Python tests...' && \
 		python -m pytest tests/python/ -v && \
@@ -79,34 +78,58 @@ test: build
 		python -m pytest tests/integration/ -v"
 
 .PHONY: test-python
-test-python: build
+test-python:
+	@if ! docker image inspect $(DOCKER_TAG) >/dev/null 2>&1; then \
+		echo "Building Docker image..."; \
+		$(MAKE) build; \
+	fi
 	$(DOCKER_RUN) $(DOCKER_TAG) python -m pytest tests/python/ -v
 
 .PHONY: test-rust
-test-rust: build
+test-rust:
+	@if ! docker image inspect $(DOCKER_TAG) >/dev/null 2>&1; then \
+		echo "Building Docker image..."; \
+		$(MAKE) build; \
+	fi
 	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "cd rust-core && cargo test"
 
 .PHONY: test-integration
-test-integration: build
+test-integration:
+	@if ! docker image inspect $(DOCKER_TAG) >/dev/null 2>&1; then \
+		echo "Building Docker image..."; \
+		$(MAKE) build; \
+	fi
 	$(DOCKER_RUN) $(DOCKER_TAG) python -m pytest tests/integration/ -v
 
 .PHONY: test-coverage
-test-coverage: build
+test-coverage:
+	@if ! docker image inspect $(DOCKER_TAG) >/dev/null 2>&1; then \
+		echo "Building Docker image..."; \
+		$(MAKE) build; \
+	fi
 	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "\
 		coverage run --source=python/qtransformers -m pytest tests/python/ && \
 		coverage report -m && \
 		coverage html"
 
-# Code quality
+# Code quality (use existing image if available)
 .PHONY: format
-format: build
+format: 
+	@if ! docker image inspect $(DOCKER_TAG) >/dev/null 2>&1; then \
+		echo "Building Docker image..."; \
+		$(MAKE) build; \
+	fi
 	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "\
 		black python/qtransformers/ tests/ benchmarks/ examples/ && \
 		isort python/qtransformers/ tests/ benchmarks/ examples/ && \
 		cd rust-core && cargo fmt"
 
 .PHONY: lint
-lint: build
+lint:
+	@if ! docker image inspect $(DOCKER_TAG) >/dev/null 2>&1; then \
+		echo "Building Docker image..."; \
+		$(MAKE) build; \
+	fi
 	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "\
 		flake8 python/qtransformers/ tests/ benchmarks/ examples/ --max-line-length=88 --extend-ignore=E203,W503 && \
 		mypy python/qtransformers/ --ignore-missing-imports && \

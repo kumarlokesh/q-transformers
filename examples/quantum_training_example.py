@@ -7,26 +7,25 @@ on real NLP tasks using the Q-Transformers library.
 """
 
 import torch
-from torch.utils.data import DataLoader
-from transformers import AutoTokenizer
 from datasets import load_dataset
+from transformers import AutoTokenizer
 
 from qtransformers import (
-    create_quantum_trainer,
-    TrainingConfig,
+    GLUEBenchmarkSuite,
     QuantumTrainer,
-    GLUEBenchmarkSuite
+    TrainingConfig,
+    create_quantum_trainer,
 )
 
 
 def main():
     """Main training example."""
-    
+
     print("🚀 Quantum Transformer Training Example")
     print("=" * 50)
-    
+
     # Configuration
-    model_config = {
+    _model_config = {
         "vocab_size": 30522,
         "hidden_size": 768,
         "num_hidden_layers": 6,  # Smaller model for demo
@@ -38,113 +37,115 @@ def main():
             "num_samples": 32,
             "use_advanced_sampling": True,
             "use_error_mitigation": True,
-            "use_gpu_acceleration": torch.cuda.is_available()
-        }
+            "use_gpu_acceleration": torch.cuda.is_available(),
+        },
     }
-    
-    training_config = TrainingConfig(
-        model_name="quantum-bert-demo",
-        learning_rate=2e-5,
-        batch_size=16,
-        max_steps=1000,  # Short training for demo
-        warmup_steps=100,
-        eval_steps=200,
-        save_steps=500,
-        checkpoint_dir="./demo_checkpoints",
-        logging_steps=50
+
+    _training_config = TrainingConfig(
+        _model_name="quantum-bert-demo",
+        _learning_rate=2e-5,
+        _batch_size=16,
+        _max_steps=1000,  # Short training for demo
+        _warmup_steps=100,
+        _eval_steps=200,
+        _save_steps=500,
+        _checkpoint_dir="./demo_checkpoints",
+        _logging_steps=50,
     )
-    
-    print(f"Model configuration: {model_config}")
-    print(f"Training configuration: {training_config}")
-    
+
+    print("Model configuration: {model_config}")
+    print("Training configuration: {training_config}")
+
     # Load demo dataset (CoLA for simplicity)
     print("\n📚 Loading CoLA dataset...")
-    dataset = load_dataset("glue", "cola")
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-    
+    _dataset = load_dataset("glue", "cola")
+    _tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+
     # Tokenize dataset
     def tokenize_function(examples):
         return tokenizer(
             examples["sentence"],
-            truncation=True,
-            padding="max_length",
-            max_length=128
+            _truncation=True,
+            _padding="max_length",
+            _max_length=128,
         )
-    
-    train_dataset = dataset["train"].map(tokenize_function, batched=True)
-    eval_dataset = dataset["validation"].map(tokenize_function, batched=True)
-    
+
+    _train_dataset = dataset["train"].map(tokenize_function, _batched=True)
+    _eval_dataset = dataset["validation"].map(tokenize_function, _batched=True)
+
     # Add labels
-    train_dataset = train_dataset.rename_column("label", "labels")
-    eval_dataset = eval_dataset.rename_column("label", "labels")
-    
-    print(f"Training samples: {len(train_dataset)}")
-    print(f"Validation samples: {len(eval_dataset)}")
-    
+    _train_dataset = train_dataset.rename_column("label", "labels")
+    _eval_dataset = eval_dataset.rename_column("label", "labels")
+
+    print("Training samples: {len(train_dataset)}")
+    print("Validation samples: {len(eval_dataset)}")
+
     # Create trainer
     print("\n🔧 Creating quantum trainer...")
-    trainer = create_quantum_trainer(
-        model_config=model_config,
-        training_config=training_config,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        tokenizer=tokenizer
+    _trainer = create_quantum_trainer(
+        _model_config=model_config,
+        _training_config=training_config,
+        _train_dataset=train_dataset,
+        _eval_dataset=eval_dataset,
+        _tokenizer=tokenizer,
     )
-    
+
     # Define evaluation metrics
     def compute_metrics(eval_pred):
-        predictions, labels = eval_pred
-        predictions = predictions.argmax(axis=1)
-        accuracy = (predictions == labels).mean()
+        predictions, _labels = eval_pred
+        _predictions = predictions.argmax(axis=1)
+        _accuracy = (predictions == labels).mean()
         return {"accuracy": accuracy}
-    
+
     trainer.compute_metrics = compute_metrics
-    
+
     # Start training
     print("\n🎯 Starting quantum transformer training...")
     trainer.train()
-    
+
     # Final evaluation
     print("\n📊 Running final evaluation...")
-    final_results = trainer.evaluate()
-    print(f"Final results: {final_results}")
-    
+    _final_results = trainer.evaluate()
+    print("Final results: {final_results}")
+
     # Compare with classical baseline
     print("\n🔬 Running quantum advantage analysis...")
-    benchmark_suite = GLUEBenchmarkSuite()
-    
+    _benchmark_suite = GLUEBenchmarkSuite()
+
     # Load trained model
-    quantum_model = trainer.model
-    
+    _quantum_model = trainer.model
+
     # Create classical baseline (simplified for demo)
-    classical_config = model_config.copy()
+    _classical_config = model_config.copy()
     classical_config["quantum_config"]["backend"] = "classical"
-    
-    classical_trainer = create_quantum_trainer(
-        model_config=classical_config,
-        training_config=training_config,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        tokenizer=tokenizer
+
+    _classical_trainer = create_quantum_trainer(
+        _model_config=classical_config,
+        _training_config=training_config,
+        _train_dataset=train_dataset,
+        _eval_dataset=eval_dataset,
+        _tokenizer=tokenizer,
     )
-    
+
     print("Training classical baseline...")
     classical_trainer.train()
-    classical_model = classical_trainer.model
-    
+    _classical_model = classical_trainer.model
+
     # Compare models
-    quantum_results = trainer.evaluate()
-    classical_results = classical_trainer.evaluate()
-    
-    print(f"\n📈 Performance Comparison:")
-    print(f"Quantum Model Accuracy: {quantum_results.get('eval_accuracy', 0):.4f}")
-    print(f"Classical Model Accuracy: {classical_results.get('eval_accuracy', 0):.4f}")
-    
-    improvement = quantum_results.get('eval_accuracy', 0) - classical_results.get('eval_accuracy', 0)
-    print(f"Quantum Advantage: {improvement:.4f} ({improvement*100:.2f}%)")
-    
+    _quantum_results = trainer.evaluate()
+    _classical_results = classical_trainer.evaluate()
+
+    print("\n📈 Performance Comparison:")
+    print("Quantum Model Accuracy: {quantum_results.get('eval_accuracy', 0):.4f}")
+    print("Classical Model Accuracy: {classical_results.get('eval_accuracy', 0):.4f}")
+
+    _improvement = quantum_results.get("eval_accuracy", 0) - classical_results.get(
+        "eval_accuracy", 0
+    )
+    print("Quantum Advantage: {improvement:.4f} ({improvement*100:.2f}%)")
+
     print("\n✅ Training completed successfully!")
-    print(f"Models saved to: {training_config.checkpoint_dir}")
+    print("Models saved to: {training_config.checkpoint_dir}")
 
 
 if __name__ == "__main__":

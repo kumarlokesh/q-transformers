@@ -3,7 +3,9 @@ Quantum Transformers: Advanced quantum-inspired attention mechanisms for neural 
 
 This package provides implementations of quantum-inspired attention mechanisms,
 including quantum sampling strategies, advanced sampling techniques, GPU acceleration,
-quantum hardware integration, large-scale training infrastructure, and production deployment tools.
+quantum hardware integration,
+    large-scale training infrastructure,
+    and production deployment tools.
 
 Key Components:
 - QuantumAttentionLayer: Core quantum attention implementation
@@ -22,39 +24,32 @@ Key Components:
 
 __version__ = "0.1.0"
 
+
+from .advanced_sampling import (
+    LearnedImportanceSampler,
+    MultilevelControlVariate,
+    QuasiMonteCarloSampler,
+)
+
 # Core quantum attention
 from .attention import (
     QuantumAttentionLayer,
     QuantumMultiheadAttention,
-    quantum_attention
+    quantum_attention,
 )
-
-from qsim.quantum_simulator import QuantumAttentionSimulator
-
-from .advanced_sampling import (
-    QuasiMonteCarloSampler,
-    LearnedImportanceSampler,
-    MultilevelControlVariate
-)
-
 from .quantum_error_mitigation import (
-    ZeroNoiseExtrapolation,
-    SymmetryVerification,
     ProbabilisticErrorCancellation,
-    VirtualDistillation
-)
-
-from .cuda_kernels import (
-    gpu_quantum_attention,
-    GPUMemoryOptimizer
+    SymmetryVerification,
+    VirtualDistillation,
+    ZeroNoiseExtrapolation,
 )
 
 try:
     from .qiskit_backend import (
+        HybridQuantumClassical,
         QiskitQuantumBackend,
         QuantumAttentionCircuit,
         QuantumErrorCorrection,
-        HybridQuantumClassical
     )
 except Exception:
     # Optional dependency; backend available when qiskit is installed
@@ -63,46 +58,36 @@ except Exception:
 from .quantum_transformer_blocks import (
     QuantumTransformerBlock,
     ScalableQuantumTransformer,
+    create_quantum_bert,
     create_quantum_gpt,
-    create_quantum_bert
 )
 
 try:
     from .nlp_benchmarks import (
+        ComplexReasoningBenchmark,
         GLUEBenchmarkSuite,
-        SuperGLUEBenchmarkSuite,
         QuantumAdvantageAnalyzer,
-        ComplexReasoningBenchmark
+        SuperGLUEBenchmarkSuite,
     )
 except ImportError:
     pass
 
 try:
     from .quantum_supremacy import (
+        ComplexityAnalyzer,
+        PatternAnalyzer,
         QuantumSupremacyTester,
         StatisticalVerificationFramework,
-        ComplexityAnalyzer,
-        PatternAnalyzer
     )
 except ImportError:
     pass
 
 try:
-    from .large_scale_training import (
-        QuantumTrainer,
+    from .training_infrastructure import (
         DistributedQuantumTraining,
+        MixedPrecisionQuantumTraining,
         QuantumDataCollator,
-        MixedPrecisionQuantumTraining
-    )
-except ImportError:
-    pass
-
-try:
-    from .production_deployment import (
-        QuantumNLPServer,
-        ModelQuantizer,
-        AutoScaler,
-        HealthMonitor
+        QuantumTrainer,
     )
 except ImportError:
     pass
@@ -112,33 +97,33 @@ try:
         DistributedQuantumAttention,
         MultiGPUQuantumTransformer,
         QuantumGradientSynchronizer,
+        create_distributed_quantum_transformer,
         setup_distributed_quantum_training,
-        create_distributed_quantum_transformer
     )
 except ImportError:
     pass
 
 try:
     from .deployment import (
-        QuantumModelServer,
         DeploymentConfig,
         ModelVersionManager,
+        QuantumModelServer,
         create_app,
-        run_server
+        run_server,
     )
 except ImportError:
     pass
 
 try:
-    from .memory_profiler import MemoryProfiler
+    pass  # Empty try block for now
 except ImportError:
     pass
 
 try:
     from .visualization import (
-        plot_attention_heatmap,
         analyze_quantum_attention,
-        save_attention_analysis
+        plot_attention_heatmap,
+        save_attention_analysis,
     )
 except ImportError:
     pass
@@ -146,75 +131,63 @@ except ImportError:
 __all__ = [
     # Core attention
     "QuantumAttentionLayer",
-    "QuantumMultiheadAttention", 
+    "QuantumMultiheadAttention",
     "quantum_attention",
-    
     # Quantum simulation
     "QuantumSimulator",
-    
     # Advanced sampling
     "QuasiMonteCarloSampler",
-    "LearnedImportanceSampler", 
+    "LearnedImportanceSampler",
     "MultiLevelControlVariates",
-    
     # Error mitigation
     "ZeroNoiseExtrapolation",
     "SymmetryVerification",
     "ProbabilisticErrorCancellation",
     "VirtualDistillation",
-    
     # GPU acceleration
     "gpu_quantum_attention",
-    "gpu_mps_contraction", 
+    "gpu_mps_contraction",
     "GPUMemoryOptimizer",
-    
     # Quantum hardware
     "QiskitQuantumBackend",
     "QuantumCircuitBuilder",
     "QuantumHardwareManager",
-    
     # Transformer blocks
     "QuantumTransformerBlock",
     "ScalableQuantumTransformer",
     "create_quantum_gpt",
     "create_quantum_bert",
-    
     # NLP benchmarking
     "GLUEBenchmarkSuite",
-    "SuperGLUEBenchmarkSuite", 
+    "SuperGLUEBenchmarkSuite",
     "QuantumAdvantageAnalyzer",
     "NLPEvaluationFramework",
-    
     # Quantum supremacy
     "QuantumSupremacyVerifier",
     "ComplexityAnalyzer",
     "QuantumClassicalComparator",
     "SupremacyBenchmarkSuite",
-    
     # Training infrastructure
     "QuantumTrainer",
     "TrainingConfig",
     "QuantumDataCollator",
     "create_quantum_trainer",
     "launch_distributed_training",
-    
     # Distributed training
     "DistributedQuantumAttention",
     "MultiGPUQuantumTransformer",
-    "QuantumGradientSynchronizer", 
+    "QuantumGradientSynchronizer",
     "setup_distributed_quantum_training",
     "create_distributed_quantum_transformer",
-    
     # Production deployment
     "QuantumModelServer",
     "DeploymentConfig",
     "ModelVersionManager",
     "create_app",
     "run_server",
-    
     # Utilities
     "MemoryProfiler",
     "plot_attention_heatmap",
-    "analyze_quantum_attention", 
-    "save_attention_analysis"
-]
+    "analyze_quantum_attention",
+    "save_attention_analysis",
+]  # Test comment

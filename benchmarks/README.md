@@ -14,7 +14,7 @@ Performance and accuracy benchmarks for Q-Transformers.
 - `run_quick_benchmarks.py` — quick benchmarks comparing exact, prototype, stratified/adaptive, and classical baselines
 - `run_sampling_benchmarks.py` — comprehensive sampling + multihead + MPS simulation evaluation
 - `run_acceleration_benchmarks.py` — GPU/CUDA acceleration, error mitigation, and transformer blocks
-- `run_full_evaluation_suite.py` — end-to-end comprehensive evaluation (GLUE/SuperGLUE, supremacy, training, deployment)
+- `run_full_evaluation_suite.py` - end-to-end comprehensive evaluation (GLUE/SuperGLUE, supremacy, training, deployment)
 
 ## Usage
 
