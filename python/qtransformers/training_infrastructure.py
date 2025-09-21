@@ -1,7 +1,7 @@
 """
 Large-Scale Training Infrastructure for Quantum Transformers
 
-Production-grade training system with:
+Training system with:
 - Distributed quantum attention across multiple GPUs
 - Scalable data pipeline for large NLP datasets
 - Mixed-precision training with quantum-aware optimizations

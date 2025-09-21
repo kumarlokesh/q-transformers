@@ -13,7 +13,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 ndarray = "0.15"
 rayon = "1.7"
-pyo3 = { version = "0.20", features = ["extension-module"] }
+pyo3 = { version = "0.20", features = ["extension-module", "auto-initialize"] }
 numpy = "0.20"
 rand = "0.8"
 

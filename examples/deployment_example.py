@@ -3,7 +3,7 @@
 Example: Deploying Quantum Transformers
 
 This script demonstrates how to deploy trained quantum transformers
-using the production-ready deployment infrastructure.
+using the deployment infrastructure.
 """
 
 import asyncio
@@ -21,10 +21,9 @@ from qtransformers.deployment import (
 def create_demo_deployment():
     """Create a demo deployment configuration."""
 
-    print("🚀 Quantum Transformer Production Deployment Example")
+    print("🚀 Quantum Transformer Deployment Example")
     print("=" * 60)
 
-    # Deployment configuration
     _config = DeploymentConfig(
         _model_name="quantum-bert-demo",
         _model_version="3.0.0",
@@ -67,7 +66,6 @@ def run_deployment_server(config: DeploymentConfig):
     print("Health check: http://{config.host}:{config.port}/health")
     print("Metrics: http://{config.host}:{config.port}/metrics")
 
-    # Start server (this would run indefinitely in production)
     try:
         run_server(config)
     except KeyboardInterrupt:
@@ -187,7 +185,7 @@ def create_docker_deployment():
     print("\n🐳 Docker Deployment Configuration")
 
     _dockerfile_content = """
-# Quantum Transformers Production Deployment
+# Quantum Transformers Deployment
 FROM pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime
 
 # Install system dependencies
@@ -227,7 +225,6 @@ CMD ["python", "-m", "qtransformers.deployment", \\
      "--port", "8000"]
 """
 
-    # Create requirements.txt
     _requirements_content = """
 torch>=2.0.0
 transformers>=4.20.0
@@ -241,7 +238,6 @@ prometheus-client>=0.15.0
 psutil>=5.9.0
 """
 
-    # Create docker-compose.yml
     _docker_compose_content = """
 version: '3.8'
 
@@ -306,11 +302,10 @@ volumes:
 def main():
     """Main deployment example."""
 
-    # Create deployment config
     _config = create_demo_deployment()
 
     print("\nChoose deployment mode:")
-    print("1. Start production server")
+    print("1. Start deployment server")
     print("2. Test API client")
     print("3. Generate Docker configuration")
     print("4. Show deployment guide")
@@ -318,7 +313,7 @@ def main():
     _choice = input("\nEnter choice (1-4): ").strip()
 
     if _choice == "1":
-        print("\n🚀 Starting production server...")
+        print("\n🚀 Starting deployment server...")
         print("Note: This will start the server. Use Ctrl+C to stop.")
         input("Press Enter to continue or Ctrl+C to cancel...")
         run_deployment_server(config)

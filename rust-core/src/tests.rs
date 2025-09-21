@@ -1,6 +1,4 @@
 use super::*;
-use numpy::PyArray2;
-use pyo3::Python;
 
 #[cfg(test)]
 mod tests {

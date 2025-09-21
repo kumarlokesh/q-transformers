@@ -1,7 +1,7 @@
 """
 Quantum Transformer Blocks for Large-Scale Models
 
-Production-ready quantum transformer components:
+Quantum transformer components:
 - QuantumTransformerBlock with residual connections
 - Multi-layer quantum transformer architectures
 - Scalable quantum attention for large models
@@ -27,7 +27,7 @@ class QuantumTransformerBlock(nn.Module):
     Quantum-enhanced transformer block with residual connections.
 
     Combines quantum attention with classical feed-forward networks
-    for production-ready large-scale transformer models.
+    for large-scale transformer models.
     """
 
     def __init__(

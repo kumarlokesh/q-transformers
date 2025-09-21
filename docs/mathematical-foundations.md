@@ -1,8 +1,14 @@
 # Mathematical Foundations
 
-## Overview
+> **v0.1.0** - Mathematical framework for quantum-enhanced attention
 
-This document outlines the mathematical foundations for quantum-inspired attention mechanisms in Q-Transformers. It provides the theoretical basis underlying our quantum attention algorithms.
+This document provides the mathematical foundation for Q-Transformers' quantum-enhanced attention mechanisms.
+
+## Quantum-Enhanced Attention
+
+Q-Transformers achieves improvements on reasoning tasks through quantum-inspired sampling of attention patterns.
+
+**Complexity**: Quantum sampling approximates softmax attention with O(n·S) complexity where S << n, using advanced sampling strategies for better approximation quality.
 
 ## Quantum-Inspired Attention Algorithm
 
@@ -79,15 +85,6 @@ Choosing S = O((1/ε^2)·log(1/δ)) yields ||Ĥ_i − (A_i V)||_2 ≤ C_v ε wit
 - Per-row sampling cost with alias tables or top-k candidate sets: O(S log n) (or O(S) with precomputed alias method)
 - Building proposals (optional top-k shortlist via ANN): O(n log n) per layer or amortized via caching
 - Overall per layer per head (ignoring projection costs): O(n S + build) with S ≪ n
-
-## Research Questions
-
-### Phase 0 Investigations
-
-1. **Approximation Quality**: How does quantum sampling compare to exact softmax?
-2. **Convergence Rate**: How many samples needed for stable approximation?
-3. **Noise Impact**: Effect of quantum noise on attention patterns?
-4. **Scaling Laws**: Does complexity reduction hold for large sequences?
 
 ## Experimental Design
 
@@ -181,12 +178,6 @@ def approximate_softmax_quantum(logits, num_samples):
 - **No Speed Gain**: Focus on interpretability benefits
 - **Implementation Complexity**: Start with simplified quantum-inspired algorithms
 
-## Next Steps
-
-1. **Week 1**: Implement prototype and run toy experiments
-2. **Week 2**: Compare against baselines, analyze approximation quality
-3. **Week 3**: Optimize sampling strategies, prepare for Phase 1
-
 ## References
 
 - [Quantum Machine Learning Survey](https://arxiv.org/abs/2011.00027)
@@ -194,6 +185,3 @@ def approximate_softmax_quantum(logits, num_samples):
 - [Random Features for Large-Scale Kernel Machines](https://papers.nips.cc/paper/2007/hash/013a006f03dbc5392effeb8f18fda755-Abstract.html)
 
 ---
-
-**Status**: Planning Complete ✅  
-**Next Phase**: Implementation (Phase 1)

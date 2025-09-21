@@ -1,6 +1,6 @@
 # Tests
 
-Comprehensive test suite for Q-Transformers with Docker-first workflow.
+Test suite for Q-Transformers.
 
 ## Structure
 
@@ -52,9 +52,3 @@ cd rust-core && cargo test
 # Integration tests
 python -m pytest tests/integration/ -v
 ```
-
-## Test Features
-
-- ✅ **Automatic Rust extension detection** - Tests skip gracefully if extension not built
-- ✅ **Shared fixtures** - Consistent test tensors and configurations
-- ✅ **Performance validation** - Benchmark regression detection

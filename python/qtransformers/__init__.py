@@ -5,7 +5,7 @@ This package provides implementations of quantum-inspired attention mechanisms,
 including quantum sampling strategies, advanced sampling techniques, GPU acceleration,
 quantum hardware integration,
     large-scale training infrastructure,
-    and production deployment tools.
+    and deployment tools.
 
 Key Components:
 - QuantumAttentionLayer: Core quantum attention implementation
@@ -18,7 +18,7 @@ Key Components:
 - Real-world NLP benchmarking and evaluation
 - Quantum supremacy verification protocols
 - Large-scale distributed training infrastructure
-- Production deployment tools and APIs
+- Deployment tools and APIs
 - Memory profiling and visualization tools
 """
 
@@ -179,7 +179,7 @@ __all__ = [
     "QuantumGradientSynchronizer",
     "setup_distributed_quantum_training",
     "create_distributed_quantum_transformer",
-    # Production deployment
+    # Deployment tools
     "QuantumModelServer",
     "DeploymentConfig",
     "ModelVersionManager",

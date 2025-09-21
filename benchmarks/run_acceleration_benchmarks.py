@@ -531,7 +531,7 @@ def generate_benchmark_report(results: Dict[str, Any]) -> str:
     )
     report.append("- GPU-accelerated quantum kernels with CUDA optimization")
     report.append("- Qiskit quantum hardware backend integration")
-    report.append("- Production-ready quantum transformer blocks")
+    report.append("- Quantum transformer blocks")
     report.append("- Comprehensive error mitigation techniques")
     report.append("")
 

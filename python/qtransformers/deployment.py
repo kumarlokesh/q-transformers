@@ -1,7 +1,7 @@
 """
-Production Deployment Tools and APIs for Quantum Transformers
+Deployment Tools and APIs for Quantum Transformers
 
-Complete production-ready deployment infrastructure:
+Complete deployment infrastructure:
 - REST API server with FastAPI
 - Model serving with quantized inference
 - Docker containerization support
@@ -111,7 +111,7 @@ class DeploymentConfig:
 
 class QuantumModelServer:
     """
-    Production-ready quantum transformer model server.
+    Quantum transformer model server.
 
     Handles model loading, inference, batching, and monitoring.
     """
@@ -204,17 +204,13 @@ class QuantumModelServer:
                 _state_dict = torch.load(model_weights_path, _map_location=self.device)
                 self.model.load_state_dict(state_dict)
 
-            # Move to device
             self.model = self.model.to(self.device)
 
-            # Apply quantization if enabled
             if self.config.enable_quantization:
                 self.model = self.quantize_model(self.model)
 
-            # Set to evaluation mode
             self.model.eval()
 
-            # Load tokenizer (simplified - would use actual tokenizer in production)
             self.tokenizer = self._create_dummy_tokenizer()
 
             logging.info("Model loaded successfully")
@@ -411,7 +407,7 @@ def create_app(config: DeploymentConfig) -> FastAPI:
 
     _app = FastAPI(
         _title="Quantum Transformers API",
-        _description="Production API for Quantum Transformer models",
+        _description="API for Quantum Transformer models",
         _version=config.model_version,
     )
 
@@ -581,7 +577,7 @@ def create_docker_config(config: DeploymentConfig) -> str:
     """Create Dockerfile for deployment."""
 
     _dockerfile_content = """
-# Quantum Transformers Production Deployment
+# Quantum Transformers Deployment
 FROM pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime
 
 # Install system dependencies
