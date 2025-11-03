@@ -1,4 +1,3 @@
-# Optimized dev image with Python + Rust toolchain for hybrid development
 FROM python:3.11-slim
 
 ENV PIP_NO_CACHE_DIR=1 \

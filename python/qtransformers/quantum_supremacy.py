@@ -11,9 +11,10 @@ Implements protocols to verify and demonstrate quantum computational advantage:
 import math
 import time
 from dataclasses import dataclass
+from typing import Any, Dict, List, Callable, Optional
 
 import numpy as np
-import stats
+from scipy import stats
 import torch
 import torch.nn.functional as F
 
@@ -60,59 +61,59 @@ class QuantumSupremacyVerifier:
             Verification results with statistical analysis
         """
 
-        _verification = {
+        verification = {
             "quantum_advantage_detected": False,
             "statistical_significance": 0.0,
             "effect_size": 0.0,
-            "confidenceinterval": (0.0, 0.0),
+            "confidence_interval": (0.0, 0.0),
             "complexity_analysis": {},
             "verification_details": {},
         }
 
-        # Extract primary metrics
-        _quantum_scores = [
+        # Extract primary metrics (ignore timing keys ending with '_time')
+        quantum_scores = [
             v for k, v in quantum_results.items() if not k.endswith("_time")
         ]
-        _classical_scores = [
+        classical_scores = [
             v for k, v in classical_results.items() if not k.endswith("_time")
         ]
 
         if len(quantum_scores) > 0 and len(classical_scores) > 0:
             # Statistical significance test
-            t_stat, _p_value = stats.ttest_ind(quantum_scores, classical_scores)
-            verification["statistical_significance"] = p_value
+            t_stat, p_value = stats.ttest_ind(quantum_scores, classical_scores)
+            verification["statistical_significance"] = float(p_value)
 
             # Effect size (Cohen's d)
-            _pooled_std = np.sqrt(
+            pooled_std = np.sqrt(
                 (
-                    (len(quantum_scores) - 1) * np.var(quantum_scores, _ddof=1)
-                    + (len(classical_scores) - 1) * np.var(classical_scores, _ddof=1)
+                    (len(quantum_scores) - 1) * np.var(quantum_scores, ddof=1)
+                    + (len(classical_scores) - 1) * np.var(classical_scores, ddof=1)
                 )
                 / (len(quantum_scores) + len(classical_scores) - 2)
             )
-            _effect_size = (
-                np.mean(quantum_scores) - np.mean(classical_scores)
-            ) / pooled_std
-            verification["effect_size"] = effect_size
+            effect_size = (np.mean(quantum_scores) - np.mean(classical_scores)) / (
+                pooled_std + 1e-12
+            )
+            verification["effect_size"] = float(effect_size)
 
             # Confidence interval for difference
-            _se_diff = pooled_std * np.sqrt(
+            se_diff = pooled_std * np.sqrt(
                 1 / len(quantum_scores) + 1 / len(classical_scores)
             )
-            _t_critical = stats.t.ppf(
+            t_critical = stats.t.ppf(
                 (1 + self.confidence_level) / 2,
                 len(quantum_scores) + len(classical_scores) - 2,
             )
-            _mean_diff = np.mean(quantum_scores) - np.mean(classical_scores)
-            _ci_lower = mean_diff - t_critical * se_diff
-            _ci_upper = mean_diff + t_critical * se_diff
-            verification["confidenceinterval"] = (ci_lower, ci_upper)
+            mean_diff = float(np.mean(quantum_scores) - np.mean(classical_scores))
+            ci_lower = mean_diff - t_critical * se_diff
+            ci_upper = mean_diff + t_critical * se_diff
+            verification["confidence_interval"] = (float(ci_lower), float(ci_upper))
 
-            # Determine if quantum advantage is detected
+            # Determine if quantum advantage is detected (basic heuristic)
             verification["quantum_advantage_detected"] = (
-                p_value < (1 - self.confidence_level)
-                and effect_size > 0.2  # Small effect size threshold
-                and ci_lower > 0
+                (p_value < (1 - self.confidence_level))
+                and (effect_size > 0.2)
+                and (ci_lower > 0)
             )
 
         # Complexity analysis
@@ -130,7 +131,7 @@ class QuantumSupremacyVerifier:
     ) -> Dict[str, Any]:
         """Analyze computational complexity implications."""
 
-        _analysis = {
+        analysis = {
             "task_complexity_class": task_complexity,
             "quantum_complexity_class": "BQP",
             "classical_complexity_class": "P/NP",
@@ -138,22 +139,22 @@ class QuantumSupremacyVerifier:
             "runtime_analysis": {},
         }
 
-        # Extract timing information
-        _quantum_time = quantum_results.get("inference_time_ms", 0)
-        _classical_time = classical_results.get("inference_time_ms", 0)
+        # Extract timing information (if available)
+        quantum_time = float(quantum_results.get("inference_time_ms", 0) or 0)
+        classical_time = float(classical_results.get("inference_time_ms", 0) or 0)
 
         if quantum_time > 0 and classical_time > 0:
-            _speedup = classical_time / quantum_time
+            speedup = classical_time / quantum_time
             analysis["runtime_analysis"] = {
                 "quantum_time_ms": quantum_time,
                 "classical_time_ms": classical_time,
-                "speedup_factor": speedup,
-                "efficiency_gain": (classical_time - quantum_time)
-                / classical_time
-                * 100,
+                "speedup_factor": float(speedup),
+                "efficiency_gain": float(
+                    (classical_time - quantum_time) / classical_time * 100
+                ),
             }
 
-            # Theoretical advantage check
+            # Theoretical advantage check (very conservative)
             if task_complexity in ["NP", "PSPACE"] and speedup > 1.0:
                 analysis["theoretical_advantage"] = True
 
@@ -172,36 +173,36 @@ class QuantumSupremacyVerifier:
         This tests the core quantum advantage in attention sampling.
         """
 
-        _quantum_times = []
-        _classical_times = []
-        _quantum_errors = []
-        _classical_errors = []
+        quantum_times: List[float] = []
+        classical_times: List[float] = []
+        quantum_errors: List[float] = []
+        classical_errors: List[float] = []
 
         for trial in range(num_trials):
             for matrix in test_matrices:
                 # Exact attention for ground truth
-                _exact_attention = F.softmax(matrix, _dim=-1)
+                exact_attention = F.softmax(matrix, dim=-1)
 
                 # Quantum sampling
-                _start_time = time.time()
-                _quantum_result = quantum_sampler(matrix)
-                _quantum_time = time.time() - start_time
-                _quantum_error = float(torch.norm(quantum_result - exact_attention))
+                start_time = time.time()
+                quantum_result = quantum_sampler(matrix)
+                quantum_time = time.time() - start_time
+                quantum_error = float(torch.norm(quantum_result - exact_attention))
 
                 quantum_times.append(quantum_time * 1000)  # Convert to ms
                 quantum_errors.append(quantum_error)
 
                 # Classical sampling (baseline)
-                _start_time = time.time()
-                _classical_result = classical_sampler(matrix)
-                _classical_time = time.time() - start_time
-                _classical_error = float(torch.norm(classical_result - exact_attention))
+                start_time = time.time()
+                classical_result = classical_sampler(matrix)
+                classical_time = time.time() - start_time
+                classical_error = float(torch.norm(classical_result - exact_attention))
 
                 classical_times.append(classical_time * 1000)
                 classical_errors.append(classical_error)
 
         # Statistical analysis
-        _results = {
+        results = {
             "quantum_performance": {
                 "mean_time_ms": np.mean(quantum_times),
                 "std_time_ms": np.std(quantum_times),
@@ -218,16 +219,24 @@ class QuantumSupremacyVerifier:
         }
 
         # Compute advantage metrics
-        _time_advantage = np.mean(classical_times) / np.mean(quantum_times)
-        _error_advantage = np.mean(classical_errors) / np.mean(quantum_errors)
+        time_advantage = float(
+            np.mean(classical_times) / (np.mean(quantum_times) + 1e-12)
+        )
+        error_advantage = float(
+            np.mean(classical_errors) / (np.mean(quantum_errors) + 1e-12)
+        )
 
         results["advantage_analysis"] = {
             "time_speedup": time_advantage,
             "error_improvement": error_advantage,
             "combined_advantage": time_advantage * error_advantage,
             "statistical_significance": {
-                "time_pvalue": stats.ttest_ind(quantum_times, classical_times)[1],
-                "error_pvalue": stats.ttest_ind(quantum_errors, classical_errors)[1],
+                "time_pvalue": float(
+                    stats.ttest_ind(quantum_times, classical_times).pvalue
+                ),
+                "error_pvalue": float(
+                    stats.ttest_ind(quantum_errors, classical_errors).pvalue
+                ),
             },
         }
 
@@ -277,20 +286,19 @@ class QuantumComplexityAnalyzer:
             "advantage_potential": {},
             "bottleneck_analysis": {},
         }
-
         # Analyze quantum advantage potential
-        _classical_complexity = analysis["classical_complexity"]["time_complexity"]
-        _quantum_complexity = analysis["quantum_complexity"]["time_complexity"]
+        _classical_complexity = _analysis["classical_complexity"]["time_complexity"]
+        _quantum_complexity = _analysis["quantum_complexity"]["time_complexity"]
 
-        analysis["advantage_potential"] = {
+        _analysis["advantage_potential"] = {
             "theoretical_speedup": self._compute_theoretical_speedup(
-                classical_complexity, quantum_complexity, input_size
+                _classical_complexity, _quantum_complexity, input_size
             ),
             "practical_advantage": self._assess_practical_advantage(task_name),
             "scalability_analysis": self._analyze_scalability(input_size),
         }
 
-        return analysis
+        return _analysis
 
     def _estimate_classical_complexity(
         self, task_name: str, input_size: int
@@ -306,7 +314,7 @@ class QuantumComplexityAnalyzer:
             "machine_translation": {"time": "O(n²)", "space": "O(n²)"},
         }
 
-        _base_complexity = complexity_map.get(
+        base_complexity = _complexity_map.get(
             task_name, {"time": "O(n²)", "space": "O(n)"}
         )
 
@@ -350,7 +358,7 @@ class QuantumComplexityAnalyzer:
         _classical_ops = self._compute_operations(classical_complexity, input_size)
         _quantum_ops = self._compute_operations(quantum_complexity, input_size)
 
-        return classical_ops / (quantum_ops + 1e-8)
+        return _classical_ops / (_quantum_ops + 1e-8)
 
     def _compute_operations(self, complexitystr: str, n: int) -> float:
         """Convert complexity string to estimated operations."""
@@ -380,7 +388,7 @@ class QuantumComplexityAnalyzer:
             "machine_translation": 0.6,  # Medium potential
         }
 
-        _score = advantage_scores.get(task_name, 0.5)
+        score = _advantage_scores.get(task_name, 0.5)
 
         return {
             "advantage_score": score,
@@ -394,7 +402,7 @@ class QuantumComplexityAnalyzer:
         _factors = []
 
         if "attention" in task_name.lower():
-            factors.extend(
+            _factors.extend(
                 [
                     "Quantum sampling reduces attention matrix computation",
                     "Superposition enables parallel evaluation of attention patterns",
@@ -403,7 +411,7 @@ class QuantumComplexityAnalyzer:
             )
 
         if "classification" in task_name.lower():
-            factors.extend(
+            _factors.extend(
                 [
                     "Quantum feature maps can capture complex patterns",
                     "Amplitude amplification for classification boundaries",
@@ -411,14 +419,13 @@ class QuantumComplexityAnalyzer:
             )
 
         if "reasoning" in task_name.lower() or "qa" in task_name.lower():
-            factors.extend(
+            _factors.extend(
                 [
                     "Quantum parallelism for exploring solution spaces",
                     "Entanglement for capturing long-range dependencies",
                 ]
             )
-
-        return factors or ["General quantum computational advantages"]
+        return _factors or ["General quantum computational advantages"]
 
     def _analyze_scalability(self, input_size: int) -> Dict[str, Any]:
         """Analyze scalability of quantum advantage."""
@@ -458,13 +465,13 @@ class QuantumSupremacyBenchmarkSuite:
     ):
         """Add a quantum supremacy benchmark."""
 
-        _benchmark = SupremacyBenchmark(
-            _task_name=task_name,
-            _complexity_class=complexity_class,
-            _classical_baseline="transformer",
-            _quantum_method="quantum_attention",
-            _verification_protocol="statistical_test",
-            _expected_advantage=1.2,  # 20% improvement threshold
+        benchmark = SupremacyBenchmark(
+            task_name=task_name,
+            complexity_class=complexity_class,
+            classical_baseline="transformer",
+            quantum_method="quantum_attention",
+            verification_protocol="statistical_test",
+            expected_advantage=1.2,  # 20% improvement threshold
         )
 
         self.benchmarks.append(
@@ -478,8 +485,7 @@ class QuantumSupremacyBenchmarkSuite:
 
     def run_supremacy_verification(self) -> Dict[str, Any]:
         """Run comprehensive quantum supremacy verification."""
-
-        _results = {
+        results = {
             "summary": {
                 "total_benchmarks": len(self.benchmarks),
                 "supremacy_demonstrated": 0,
@@ -491,32 +497,32 @@ class QuantumSupremacyBenchmarkSuite:
             "verification_report": {},
         }
 
-        _advantages = []
-        _confidences = []
+        advantages: List[float] = []
+        confidences: List[float] = []
 
         for i, benchmark in enumerate(self.benchmarks):
-            _config = benchmark["config"]
-            _task_name = config.task_name
+            config = benchmark["config"]
+            task_name = config.task_name
 
-            print("Running supremacy benchmark: {task_name}")
+            print(f"Running supremacy benchmark: {task_name}")
 
             # Run quantum model evaluation
-            _quantum_results = self._evaluate_model(
+            quantum_results = self._evaluate_model(
                 benchmark["quantum_model"], benchmark["test_data"]
             )
 
             # Run classical model evaluation
-            _classical_results = self._evaluate_model(
+            classical_results = self._evaluate_model(
                 benchmark["classical_model"], benchmark["test_data"]
             )
 
             # Verify quantum advantage
-            _verification = self.verifier.verify_quantum_advantage(
+            verification = self.verifier.verify_quantum_advantage(
                 quantum_results, classical_results, config.complexity_class
             )
 
             # Complexity analysis
-            _complexity_analysis = self.complexity_analyzer.analyze_task_complexity(
+            complexity_analysis = self.complexity_analyzer.analyze_task_complexity(
                 task_name, len(benchmark["test_data"]), {}
             )
 
@@ -528,19 +534,19 @@ class QuantumSupremacyBenchmarkSuite:
             }
 
             # Update summary statistics
-            if verification["quantum_advantage_detected"]:
+            if verification.get("quantum_advantage_detected"):
                 results["summary"]["supremacy_demonstrated"] += 1
 
-            _advantage = verification.get("effect_size", 0)
-            _confidence = 1 - verification.get("statistical_significance", 1)
+            advantage = verification.get("effect_size", 0)
+            confidence = 1 - verification.get("statistical_significance", 1)
 
-            advantages.append(advantage)
-            confidences.append(confidence)
+            advantages.append(float(advantage))
+            confidences.append(float(confidence))
 
         # Overall summary
         if advantages:
-            results["summary"]["average_advantage"] = np.mean(advantages)
-            results["summary"]["statistical_confidence"] = np.mean(confidences)
+            results["summary"]["average_advantage"] = float(np.mean(advantages))
+            results["summary"]["statistical_confidence"] = float(np.mean(confidences))
 
         return results
 
@@ -550,21 +556,25 @@ class QuantumSupremacyBenchmarkSuite:
         """Evaluate model performance on test data."""
 
         model.eval()
-        _results = {}
+        results: Dict[str, float] = {}
 
-        _start_time = time.time()
+        start_time = time.time()
 
         with torch.no_grad():
             # Simple evaluation - in practice would be more sophisticated
             if hasattr(test_data, "__len__"):
-                _total_samples = len(test_data)
-                results["accuracy"] = 0.85 + torch.rand(1).item() * 0.1  # Placeholder
-                results["f1_score"] = 0.80 + torch.rand(1).item() * 0.15  # Placeholder
+                total_samples = len(test_data)
+                results["accuracy"] = float(
+                    0.85 + torch.rand(1).item() * 0.1
+                )  # Placeholder
+                results["f1_score"] = float(
+                    0.80 + torch.rand(1).item() * 0.15
+                )  # Placeholder
             else:
                 results["accuracy"] = 0.85
                 results["f1_score"] = 0.80
 
-        results["inference_time_ms"] = (time.time() - start_time) * 1000
+        results["inference_time_ms"] = float((time.time() - start_time) * 1000)
 
         return results
 
@@ -586,23 +596,23 @@ def demonstrate_quantum_supremacy(
         Comprehensive supremacy demonstration results
     """
 
-    _suite = QuantumSupremacyBenchmarkSuite()
+    suite = QuantumSupremacyBenchmarkSuite()
 
     # Add benchmarks for different NLP tasks
     for task_name, dataset in test_datasets.items():
         suite.add_supremacy_benchmark(
-            _task_name=task_name,
-            _quantum_model=quantum_model,
-            _classical_model=classical_model,
-            _test_data=dataset,
-            _complexity_class="BQP",
+            task_name=task_name,
+            quantum_model=quantum_model,
+            classical_model=classical_model,
+            test_data=dataset,
+            complexity_class="BQP",
         )
 
     # Run supremacy verification
-    _results = suite.run_supremacy_verification()
+    results = suite.run_supremacy_verification()
 
     # Generate final report
-    _report = {
+    report: Dict[str, Any] = {
         "quantum_supremacy_demonstrated": results["summary"]["supremacy_demonstrated"]
         > 0,
         "number_of_tasks_with_advantage": results["summary"]["supremacy_demonstrated"],

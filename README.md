@@ -1,10 +1,25 @@
 # Q-Transformers: Quantum-Enhanced NLP
 
-> **v0.1.0** - Quantum-enhanced NLP platform with proven advantages
+> **v0.1.0** - Library implementing quantum-inspired attention mechanisms for transformer models.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-green.svg)](https://github.com/kumarlokesh/q-transformers)
+
+## Table of contents
+
+- [Q-Transformers: Quantum-Enhanced NLP](#q-transformers-quantum-enhanced-nlp)
+  - [Table of contents](#table-of-contents)
+  - [Key Features](#key-features)
+  - [Benchmarks](#benchmarks)
+  - [Developer Quick Start](#developer-quick-start)
+    - [Basic Usage](#basic-usage)
+  - [Documentation](#documentation)
+    - [Benchmarking and Evaluation](#benchmarking-and-evaluation)
+  - [Technical Overview](#technical-overview)
+    - [Core Components](#core-components)
+  - [Technical Advantages](#technical-advantages)
+  - [License](#license)
+  - [Additional documentation](#additional-documentation)
 
 ## Key Features
 
@@ -14,29 +29,55 @@
 - **Real quantum hardware support** - IBM Quantum integration via Qiskit
 - **Comprehensive benchmarking** - GLUE/SuperGLUE validation with 19 NLP tasks
 
-## Performance Results
+## Benchmarks
 
-Latest benchmarks from comprehensive evaluation suite
+Benchmarks and evaluation scripts are provided under the `benchmarks/` directory. Results depend on hardware, backend configuration, and random seeds; reproduce experiments using the provided scripts rather than relying on summarized claims in the README.
 
-### NLP Task Performance
+## Developer Quick Start
 
-| Task | Classical Baseline | Quantum Model | Improvement |
-|------|-------------------|---------------|-----------|
-| CoLA (Grammar Acceptability) | 67.8% | **92.9%** | **+25.1%** |
-| RTE (Textual Entailment) | 68.5% | **76.9%** | **+12.3%** |
-| SST-2 (Sentiment Analysis) | 91.3% | **94.7%** | **+3.7%** |
-| MRPC (Paraphrase Detection) | 85.1% | **89.4%** | **+5.1%** |
+The repository includes a `Makefile` with common developer tasks. Use the `Makefile` targets from the project root to build, run checks, and execute tests. The targets orchestrate the toolchain (Python, Rust) and ensure consistent environments across machines.
 
-## Quick Start
+Common tasks:
 
-### Installation
+- Build development image and prepare environment:
 
 ```bash
-pip install qtransformers
+make build
+```
 
-# For development
+- Open an interactive shell with the repository mounted:
+
+```bash
+make shell
+```
+
+- Run Python unit tests:
+
+```bash
+make test-python
+```
+
+- Run Rust tests:
+
+```bash
+make test-rust
+```
+
+- Run the full test suite (Python + Rust + integration):
+
+```bash
+make test
+```
+
+If you need or prefer a local Python virtual environment, a local install is supported but may require system toolchains for some dependencies:
+
+```bash
 git clone https://github.com/kumarlokesh/q-transformers
-cd q-transformers && pip install -e .
+cd q-transformers
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip setuptools wheel
+pip install -e python[dev]
 ```
 
 ### Basic Usage
@@ -105,7 +146,7 @@ supremacy_results = verifier.verify_quantum_advantage(
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Documentation
+## Additional documentation
 
 - [Mathematical Foundations](docs/mathematical-foundations.md)
 - [Core Architecture](docs/core-architecture.md)

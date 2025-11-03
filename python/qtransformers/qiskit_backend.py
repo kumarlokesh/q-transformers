@@ -10,6 +10,7 @@ import time
 
 import torch
 import torch.nn.functional as F
+from typing import List, Optional, Tuple, Any, Dict
 
 try:
     from qiskit import (
@@ -22,24 +23,23 @@ try:
     )
     from qiskit.circuit import Parameter
     from qiskit.providers import Backend
-    from qiskit.providers.aer.noise import (
-        NoiseModel,
-        amplitude_damping_error,
-        depolarizing_error,
-    )
+    from qiskit.providers.aer.noise import NoiseModel, depolarizing_error
 
-    _QISKIT_AVAILABLE = True
+    QISKIT_AVAILABLE = True
 except ImportError:
-    _QISKIT_AVAILABLE = False
+    QISKIT_AVAILABLE = False
 
-    # Define dummy classes for when Qiskit is not available
-    class NoiseModel:
+    # Minimal dummy stand-ins so imports don't break static analysis when qiskit isn't installed
+    class NoiseModel:  # type: ignore
         pass
 
-    class Backend:
+    class Backend:  # type: ignore
         pass
 
-    print("Qiskit not available. Install with: pip install qiskit qiskit-aer")
+    # Keep a visible runtime hint in case the backend is used accidentally
+    print(
+        "Qiskit not available. To enable hardware backends install: pip install qiskit qiskit-aer"
+    )
 
 
 class QuantumAttentionCircuit:
@@ -61,13 +61,12 @@ class QuantumAttentionCircuit:
         self.depth = depth
         self.entanglement = entanglement
 
-        # Create parameterized quantum circuit for attention
         self.qreg = QuantumRegister(num_qubits, "attention")
         self.creg = ClassicalRegister(num_qubits, "measurement")
         self.circuit = QuantumCircuit(self.qreg, self.creg)
 
         # Parameters for quantum attention
-        self.theta_params = []
+        self.theta_params: List[Parameter] = []
         self._build_attention_circuit()
 
     def _build_attention_circuit(self):
@@ -76,9 +75,9 @@ class QuantumAttentionCircuit:
         for layer in range(self.depth):
             # Rotation layer (encoding query/key information)
             for i in range(self.num_qubits):
-                _theta = Parameter("theta_{layer}_{i}")
-                self.theta_params.append(theta)
-                self.circuit.ry(theta, i)
+                _theta = Parameter(f"theta_{layer}_{i}")
+                self.theta_params.append(_theta)
+                self.circuit.ry(_theta, i)
 
             # Entanglement layer (attention interactions)
             if self.entanglement == "linear":
@@ -110,25 +109,27 @@ class QuantumAttentionCircuit:
         Returns:
             Parameter values for quantum circuit
         """
-        # Compute attention logits
-        _attention_logit = torch.dot(query, key) / math.sqrt(query.shape[0])
+        # Compute attention logit (scalar)
+        attention_logit = float(torch.dot(query, key) / math.sqrt(query.shape[0]))
 
         # Map to quantum circuit parameters
-        _param_values = []
+        param_values: List[float] = []
 
         # Use attention logit and vector components to set rotation angles
-        for layer in range(self.depth):
+        for _ in range(self.depth):
             for i in range(self.num_qubits):
                 if i < query.shape[0] and i < key.shape[0]:
                     # Use query-key product for this qubit
-                    _angle = float(query[i] * key[i] + attention_logit * 0.1)
+                    angle = float(
+                        query[i].item() * key[i].item() + attention_logit * 0.1
+                    )
                 else:
                     # Pad with scaled attention logit
-                    _angle = float(attention_logit * (i + 1) / self.num_qubits)
+                    angle = float(attention_logit * (i + 1) / self.num_qubits)
 
                 # Normalize angle to [0, 2π]
-                _angle = math.atan2(math.sin(angle), math.cos(angle)) + math.pi
-                param_values.append(angle)
+                normed = math.atan2(math.sin(angle), math.cos(angle)) + math.pi
+                param_values.append(normed)
 
         return param_values
 
@@ -166,27 +167,26 @@ class QiskitQuantumBackend:
 
         self.backend = self._get_backend()
 
+        # Build an attention circuit instance
         self.attention_circuit = QuantumAttentionCircuit(
-            _num_qubits=num_qubits, _depth=3, _entanglement="linear"
+            num_qubits=num_qubits, depth=3, entanglement="linear"
         )
 
     def _get_backend(self) -> Backend:
         """Get Qiskit backend instance."""
-
-        if self.backend_name == "aer_simulator":
-            _backend = AerSimulator()
-        elif self.backend_name.startswith("ibmq"):
-            try:
+        try:
+            if self.backend_name == "aer_simulator":
+                backend = Aer.get_backend("aer_simulator")
+            elif self.backend_name.startswith("ibmq"):
                 IBMQ.load_account()
-                _provider = IBMQ.get_provider()
-                _backend = provider.get_backend(self.backend_name)
-            except Exception as _e:
-                print("Failed to load IBM backend {self.backend_name}: {e}")
-                print("Falling back to Aer simulator")
-                _backend = AerSimulator()
-        else:
-            # Default to Aer simulator
-            _backend = AerSimulator()
+                provider = IBMQ.get_provider()
+                backend = provider.get_backend(self.backend_name)
+            else:
+                backend = Aer.get_backend(self.backend_name)
+        except Exception as e:
+            # Best-effort fallback to Aer simulator if provider lookup fails
+            print(f"Failed to get requested backend {self.backend_name}: {e}")
+            backend = Aer.get_backend("aer_simulator")
 
         return backend
 
@@ -214,8 +214,10 @@ class QiskitQuantumBackend:
         _two_qubit_error = depolarizing_error(gate_error_rate * 2, 2)
 
         # Add errors to all gates
-        noise_model.add_all_qubit_quantum_error(single_qubit_error, ["ry", "rz", "sx"])
-        noise_model.add_all_qubit_quantum_error(two_qubit_error, ["cx"])
+        _noise_model.add_all_qubit_quantum_error(
+            _single_qubit_error, ["ry", "rz", "sx"]
+        )
+        _noise_model.add_all_qubit_quantum_error(_two_qubit_error, ["cx"])
 
         # Measurement errors
         if measurement_error_rate > 0:
@@ -227,7 +229,7 @@ class QiskitQuantumBackend:
                     [measurement_error_rate, 1 - measurement_error_rate],
                 ]
             )
-            noise_model.add_all_qubit_readout_error(readout_error)
+            _noise_model.add_all_qubit_readout_error(_readout_error)
 
         # Thermal relaxation (simplified)
         if thermal_relaxation:
@@ -237,10 +239,10 @@ class QiskitQuantumBackend:
 
             from qiskit.providers.aer.noise import thermal_relaxation_error
 
-            _thermal_error = thermal_relaxation_error(t1, t2, gate_time)
-            noise_model.add_all_qubit_quantum_error(thermal_error, ["ry", "rz", "sx"])
+            _thermal_error = thermal_relaxation_error(_t1, _t2, _gate_time)
+            _noise_model.add_all_qubit_quantum_error(_thermal_error, ["ry", "rz", "sx"])
 
-        return noise_model
+        return _noise_model
 
     def quantum_attention_measurement(
         self, query: torch.Tensor, key: torch.Tensor, num_measurements: int = None
@@ -257,37 +259,37 @@ class QiskitQuantumBackend:
             Quantum measurement probabilities
         """
         if num_measurements is None:
-            _num_measurements = self.shots
+            num_measurements = self.shots
 
         # Encode query-key data into circuit parameters
-        _param_values = self.attention_circuit.encode_attention_data(query, key)
+        param_values = self.attention_circuit.encode_attention_data(query, key)
 
         # Get parameterized circuit
-        _qc = self.attention_circuit.get_parameterized_circuit()
+        qc = self.attention_circuit.get_parameterized_circuit()
 
         # Bind parameters
-        _bound_circuit = qc.bind_parameters(
+        bound_circuit = qc.bind_parameters(
             dict(zip(self.attention_circuit.theta_params, param_values))
         )
 
         # Execute on quantum backend
-        _job = execute(
+        job = execute(
             bound_circuit,
-            _backend=self.backend,
-            _shots=num_measurements,
-            _noise_model=self.noise_model,
+            backend=self.backend,
+            shots=num_measurements,
+            noise_model=self.noise_model,
         )
 
-        _result = job.result()
-        _counts = result.get_counts()
+        result = job.result()
+        counts = result.get_counts()
 
         # Convert measurement counts to probabilities
-        _probs = torch.zeros(2**self.num_qubits)
-        _total_shots = sum(counts.values())
+        probs = torch.zeros(2**self.num_qubits)
+        total_shots = float(sum(counts.values())) if counts else float(num_measurements)
 
         for bitstring, count in counts.items():
             # Convert bitstring to index
-            _index = int(bitstring, 2)
+            index = int(bitstring, 2)
             probs[index] = count / total_shots
 
         return probs
@@ -311,48 +313,41 @@ class QiskitQuantumBackend:
         Returns:
             Quantum attention output
         """
-        batch_size, seq_len_q, _embed_dim = Q.shape
-        _seq_len_k = K.shape[1]
+        batch_size, seq_len_q, embed_dim = Q.shape
+        seq_len_k = K.shape[1]
 
         # Limit sequence length for quantum hardware
-        _actual_seq_len = min(seq_len_q, max_sequence_length)
+        actual_seq_len = min(seq_len_q, max_sequence_length)
 
-        # Initialize output
-        _output = torch.zeros(batch_size, actual_seq_len, embed_dim)
+        # Initialize output for full seq_len_q and pad/truncate internally
+        output = torch.zeros(batch_size, seq_len_q, embed_dim)
 
         for b in range(batch_size):
             for i in range(actual_seq_len):
-                _query_vec = Q[b, i, :]
+                query_vec = Q[b, i, :]
 
                 # Compute quantum attention weights for this query
-                _attention_weights = torch.zeros(min(seq_len_k, max_sequence_length))
+                attention_weights = torch.zeros(min(seq_len_k, max_sequence_length))
 
                 for j in range(min(seq_len_k, max_sequence_length)):
-                    _key_vec = K[b, j, :]
+                    key_vec = K[b, j, :]
 
                     # Quantum measurement for this query-key pair
-                    _probs = self.quantum_attention_measurement(query_vec, key_vec)
+                    probs = self.quantum_attention_measurement(query_vec, key_vec)
 
                     # Extract attention weight (use first few measurement outcomes)
-                    _attention_weight = probs[
-                        : min(4, len(probs))
-                    ].sum()  # Sum first few outcomes
-                    attention_weights[j] = attention_weight
+                    attn_weight = probs[: min(4, probs.shape[0])].sum()
+                    attention_weights[j] = attn_weight
 
                 # Normalize attention weights
-                _attention_weights = F.softmax(attention_weights, _dim=0)
+                attention_weights = F.softmax(attention_weights, dim=0)
 
                 # Apply attention to values
-                _weighted_values = torch.zeros(embed_dim)
-                for j in range(len(attention_weights)):
+                weighted_values = torch.zeros(embed_dim)
+                for j in range(attention_weights.shape[0]):
                     weighted_values += attention_weights[j] * V[b, j, :]
 
                 output[b, i, :] = weighted_values
-
-        # Pad output if needed
-        if seq_len_q > actual_seq_len:
-            _padding = torch.zeros(batch_size, seq_len_q - actual_seq_len, embed_dim)
-            _output = torch.cat([output, padding], _dim=1)
 
         return output
 
@@ -458,41 +453,41 @@ class HybridQuantumClassical:
         Returns:
             Hybrid attention output
         """
-        batch_size, seq_len, _embed_dim = Q.shape
+        batch_size, seq_len, embed_dim = Q.shape
 
+        # If sequence too long, prefer classical or truncation fallback
         if seq_len > sequence_threshold:
-            # Use classical attention for long sequences
             if self.classical_fallback:
                 return self._classical_attention(Q, K, V)
             else:
-                # Truncate for quantum processing
-                _Q_trunc = Q[:, :sequence_threshold, :]
-                _K_trunc = K[:, :sequence_threshold, :]
-                _V_trunc = V[:, :sequence_threshold, :]
+                Q_trunc = Q[:, :sequence_threshold, :]
+                K_trunc = K[:, :sequence_threshold, :]
+                V_trunc = V[:, :sequence_threshold, :]
                 return self.quantum_backend.batched_quantum_attention(
                     Q_trunc, K_trunc, V_trunc
                 )
 
-        # Determine which attention heads to compute quantumly
-        _num_quantum_queries = int(seq_len * quantum_ratio)
+        # Determine how many queries to compute with the quantum backend
+        num_quantum_queries = int(seq_len * quantum_ratio)
 
-        _output = torch.zeros_like(Q)
+        output = torch.zeros_like(Q)
 
-        # Quantum computation for first part
+        # Compute quantum portion (prefix)
         if num_quantum_queries > 0:
-            _Q_quantum = Q[:, :num_quantum_queries, :]
-            _quantum_output = self.quantum_backend.batched_quantum_attention(
-                Q_quantum, K, V
+            Q_quantum = Q[:, :num_quantum_queries, :]
+            K_quantum = K[:, :num_quantum_queries, :]
+            V_quantum = V[:, :num_quantum_queries, :]
+            quantum_output = self.quantum_backend.batched_quantum_attention(
+                Q_quantum, K_quantum, V_quantum
             )
-            output[:, :num_quantum_queries, :] = quantum_output[
-                :, :num_quantum_queries, :
-            ]
+            output[:, :num_quantum_queries, :] = quantum_output
 
-        # Classical computation for remaining part
+        # Compute classical portion for the remainder and fill into output
         if num_quantum_queries < seq_len:
-            _Q_classical = Q[:, num_quantum_queries:, :]
-            _classical_output = self._classical_attention(Q_classical, K, V)
-            output[:, num_quantum_queries:, :] = classical_output
+            classical_full = self._classical_attention(Q, K, V)
+            output[:, num_quantum_queries:, :] = classical_full[
+                :, num_quantum_queries:, :
+            ]
 
         return output
 
@@ -500,9 +495,9 @@ class HybridQuantumClassical:
         self, Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor
     ) -> torch.Tensor:
         """Classical scaled dot-product attention."""
-        _d_k = Q.shape[-1]
-        _scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
-        _attention_weights = F.softmax(scores, _dim=-1)
+        d_k = Q.shape[-1]
+        scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
+        attention_weights = F.softmax(scores, dim=-1)
         return torch.matmul(attention_weights, V)
 
     def benchmark_quantum_advantage(
@@ -520,7 +515,7 @@ class HybridQuantumClassical:
         Returns:
             Benchmarking results
         """
-        _results = {
+        results: Dict[str, Any] = {
             "quantum_ratios": quantum_ratios,
             "execution_times": [],
             "approximation_errors": [],
@@ -528,23 +523,24 @@ class HybridQuantumClassical:
         }
 
         for ratio in quantum_ratios:
-            _ratio_times = []
-            _ratio_errors = []
+            ratio_times: List[float] = []
+            ratio_errors: List[float] = []
 
-            for Q, K, V in test_inputs:
+            for Q_i, K_i, V_i in test_inputs:
                 # Classical reference
-                _classical_output = self._classical_attention(Q, K, V)
+                classical_output = self._classical_attention(Q_i, K_i, V_i)
 
                 # Hybrid quantum-classical
+                start_time = time.time()
+                hybrid_output = self.hybrid_attention(
+                    Q_i, K_i, V_i, quantum_ratio=ratio
+                )
+                execution_time = time.time() - start_time
 
-                _start_time = time.time()
-                _hybrid_output = self.hybrid_attention(Q, K, V, _quantum_ratio=ratio)
-                _execution_time = time.time() - start_time
-
-                # Compute approximation error
-                _error = float(
+                # Compute approximation error (add tiny denom to avoid divide-by-zero)
+                error = float(
                     torch.norm(hybrid_output - classical_output)
-                    / torch.norm(classical_output)
+                    / (torch.norm(classical_output) + 1e-12)
                 )
 
                 ratio_times.append(execution_time)
@@ -552,9 +548,9 @@ class HybridQuantumClassical:
 
             results["execution_times"].append(ratio_times)
             results["approximation_errors"].append(ratio_errors)
-            results["quantum_circuit_depths"].append(
-                self.quantum_backend.attention_circuit.depth
-            )
+            # Circuit depth (if available)
+            depth = getattr(self.quantum_backend.attention_circuit, "depth", None)
+            results["quantum_circuit_depths"].append(depth)
 
         return results
 
@@ -573,11 +569,11 @@ def create_qiskit_backend(
     Returns:
         Configured Qiskit quantum backend
     """
-    _backend = QiskitQuantumBackend(backend_name=backend_name, **kwargs)
+    backend = QiskitQuantumBackend(backend_name=backend_name, **kwargs)
 
-    if enable_noise and _backend_name == "aer_simulator":
+    if enable_noise and backend_name == "aer_simulator":
         # Add realistic noise model
-        _noise_model = backend.create_hardware_noise_model()
+        noise_model = backend.create_hardware_noise_model()
         backend.noise_model = noise_model
 
     return backend

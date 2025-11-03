@@ -1,6 +1,3 @@
-# Q-Transformers Makefile
-# Docker-based development workflow
-
 # Variables
 DOCKER_TAG := qtransformers-dev:latest
 DOCKER_RUN := docker run --rm -v "$(PWD)":/workspace -w /workspace
@@ -43,6 +40,10 @@ help:
 .PHONY: build
 build:
 	docker build -f Dockerfile.dev -t $(DOCKER_TAG) .
+
+.PHONY: docker-build
+docker-build: build
+	@echo "Docker image built as $(DOCKER_TAG)"
 
 .PHONY: build-force
 build-force:
@@ -135,6 +136,23 @@ lint:
 		mypy python/qtransformers/ --ignore-missing-imports && \
 		cd rust-core && cargo clippy -- -D warnings"
 
+
+.PHONY: flake8
+flake8:
+	@if ! docker image inspect $(DOCKER_TAG) >/dev/null 2>&1; then \
+		echo "Building Docker image..."; \
+		$(MAKE) build; \
+	fi
+	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "flake8 python/qtransformers/ tests/ benchmarks/ examples/ --max-line-length=88 --extend-ignore=E203,W503"
+
+.PHONY: flake8-ci
+flake8-ci:
+	@if ! docker image inspect $(DOCKER_TAG) >/dev/null 2>&1; then \
+		echo "Building Docker image..."; \
+		$(MAKE) build; \
+	fi
+	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "flake8 python/qtransformers/ tests/ benchmarks/ examples/ --max-line-length=88 --extend-ignore=E203,W503 --show-source --statistics"
+
 .PHONY: check
 check: format lint test
 
@@ -155,6 +173,10 @@ bench-full: build
 .PHONY: shell
 shell: build
 	$(DOCKER_RUN_IT) $(DOCKER_TAG) bash
+
+.PHONY: docker-shell
+docker-shell: shell
+	@echo "Opened shell in $(DOCKER_TAG)"
 
 .PHONY: jupyter
 jupyter: build

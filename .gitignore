@@ -66,6 +66,7 @@ venv.bak/
 # Rust
 /rust-core/target/
 /rust-core/Cargo.lock
+/target/
 
 # OS generated files
 .DS_Store
