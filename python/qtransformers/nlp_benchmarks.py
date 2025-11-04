@@ -22,7 +22,6 @@ from sklearn.metrics import (
     accuracy_score,
     f1_score,
     matthews_corrcoef,
-    precision_recall_fscore_support,
 )
 
 # Optional dependencies
@@ -465,7 +464,8 @@ class QuantumAdvantageAnalyzer:
 
         # Get attention weights from both models
         quantum_attentions: List[np.ndarray] = []
-        classical_attentions: List[np.ndarray] = []
+        # classical_attentions reserved for future use if classical models
+        # expose attention weights; keep out to avoid unused-variable lints
 
         tokenizer = (
             AutoTokenizer.from_pretrained("bert-base-uncased")
@@ -521,43 +521,57 @@ class QuantumAdvantageAnalyzer:
         self, attention_matrices: List[np.ndarray]
     ) -> Dict[str, float]:
         """Compute entropy of attention distributions."""
-        _entropies = []
+        entropies: List[float] = []
+
+        if not attention_matrices:
+            return {
+                "mean_entropy": 0.0,
+                "std_entropy": 0.0,
+                "min_entropy": 0.0,
+                "max_entropy": 0.0,
+            }
 
         for attn_matrix in attention_matrices:
             # Compute entropy for each attention head
-            _head_entropies = []
-            for head in range(
-                attn_matrix.shape[1]
-            ):  # Assuming shape: [batch, heads, seq, seq]
-                attn_dist = attn_matrix[0, head, :, :]  # First batch item
+            head_entropies: List[float] = []
+            # Assuming shape: [batch, heads, seq, seq]
+            n_heads = attn_matrix.shape[1] if attn_matrix.ndim >= 4 else 1
+            for head in range(n_heads):
+                attn_dist = attn_matrix[0, head, :, :]
                 entropy = -np.sum(attn_dist * np.log(attn_dist + 1e-12), axis=-1)
-                head_entropies.append(np.mean(entropy))
-            entropies.append(np.mean(head_entropies))
+                head_entropies.append(float(np.mean(entropy)))
 
+            entropies.append(float(np.mean(head_entropies)))
+
+        ent_arr = np.array(entropies)
         return {
-            "mean_entropy": np.mean(entropies),
-            "std_entropy": np.std(entropies),
-            "min_entropy": np.min(entropies),
-            "max_entropy": np.max(entropies),
+            "mean_entropy": float(np.mean(ent_arr)),
+            "std_entropy": float(np.std(ent_arr)),
+            "min_entropy": float(np.min(ent_arr)),
+            "max_entropy": float(np.max(ent_arr)),
         }
 
     def _compute_attention_sparsity(
         self, attention_matrices: List[np.ndarray]
     ) -> Dict[str, float]:
         """Compute sparsity of attention patterns."""
-        _sparsities = []
+        sparsities: List[float] = []
+
+        if not attention_matrices:
+            return {"mean_sparsity": 0.0, "std_sparsity": 0.0}
 
         for attn_matrix in attention_matrices:
             # Count near-zero attention weights
-            _threshold = 0.01
-            _total_weights = attn_matrix.size
-            _sparse_weights = np.sum(attn_matrix < _threshold)
-            _sparsity = _sparse_weights / _total_weights
-            _sparsities.append(_sparsity)
+            threshold = 0.01
+            total_weights = attn_matrix.size
+            sparse_weights = np.sum(attn_matrix < threshold)
+            sparsity = float(sparse_weights) / float(max(1, total_weights))
+            sparsities.append(sparsity)
 
+        spars_arr = np.array(sparsities)
         return {
-            "mean_sparsity": np.mean(sparsities),
-            "std_sparsity": np.std(sparsities),
+            "mean_sparsity": float(np.mean(spars_arr)),
+            "std_sparsity": float(np.std(spars_arr)),
         }
 
     def _compute_pattern_diversity(self, attention_matrices: List[np.ndarray]) -> float:
@@ -750,7 +764,8 @@ class NLPBenchmarkRunner:
         with open(output_path, "w") as f:
             json.dump(results, f, indent=2)
 
-        print("📊 Benchmark results saved to: {output_path}")
+        # use f-string so the path is interpolated correctly
+        print(f"📊 Benchmark results saved to: {output_path}")
 
 
 # Factory functions for easy usage
@@ -766,12 +781,13 @@ def create_quantum_nlp_benchmark(
     """Create comprehensive NLP benchmark runner."""
 
     if quantum_config is None:
-        _quantum_config = {
+        quantum_config = {
             "backend": "prototype",
             "num_samples": 32,
             "use_advanced_sampling": True,
             "use_error_mitigation": True,
         }
+
     config = BenchmarkConfig(
         model_name=model_name, task_name="comprehensive", quantum_config=quantum_config
     )

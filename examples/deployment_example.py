@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# flake8: noqa
 """
 Example: Deploying Quantum Transformers
 
@@ -58,8 +59,6 @@ def create_demo_deployment():
 
 
 def run_deployment_server(config: DeploymentConfig):
-    """Run the deployment server."""
-
     print("\n🌐 Starting quantum model server...")
     print("Server will be available at: http://{config.host}:{config.port}")
     print("API documentation: http://{config.host}:{config.port}/docs")

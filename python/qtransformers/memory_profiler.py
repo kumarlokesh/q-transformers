@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 import psutil
 import torch
+import gc
 
 
 @dataclass
@@ -47,38 +48,38 @@ class AdvancedMemoryProfiler:
 
     def take_snapshot(self, label: str = "") -> MemorySnapshot:
         """Take a comprehensive memory snapshot."""
-        _timestamp = time.time()
+        timestamp = time.time()
 
         # CPU memory from psutil
-        _process = psutil.Process()
-        _memory_info = process.memory_info()
-        _cpu_memory_mb = memory_info.rss / 1024 / 1024
+        process = psutil.Process()
+        memory_info = process.memory_info()
+        cpu_memory_mb = float(memory_info.rss) / 1024.0 / 1024.0
 
         # GPU memory tracking
-        _gpu_memory_mb = 0.0
-        _torch_allocated_mb = 0.0
-        _torch_cached_mb = 0.0
+        gpu_memory_mb = 0.0
+        torch_allocated_mb = 0.0
+        torch_cached_mb = 0.0
 
         if torch.cuda.is_available():
-            _gpu_memory_mb = torch.cuda.memory_allocated() / 1024 / 1024
-            _torch_allocated_mb = torch.cuda.memory_allocated() / 1024 / 1024
-            _torch_cached_mb = torch.cuda.memory_reserved() / 1024 / 1024
+            gpu_memory_mb = float(torch.cuda.memory_allocated()) / 1024.0 / 1024.0
+            torch_allocated_mb = float(torch.cuda.memory_allocated()) / 1024.0 / 1024.0
+            torch_cached_mb = float(torch.cuda.memory_reserved()) / 1024.0 / 1024.0
 
         # Python tracemalloc
-        _python_tracemalloc_mb = 0.0
+        python_tracemalloc_mb = 0.0
         if self.enable_tracemalloc:
             current, _peak = tracemalloc.get_traced_memory()
-            _python_tracemalloc_mb = current / 1024 / 1024
+            python_tracemalloc_mb = float(current) / 1024.0 / 1024.0
 
-        _snapshot = MemorySnapshot(
-            _timestamp=timestamp,
-            _cpu_memory_mb=cpu_memory_mb,
-            _gpu_memory_mb=gpu_memory_mb,
-            _torch_allocated_mb=torch_allocated_mb,
-            _torch_cached_mb=torch_cached_mb,
-            _python_tracemalloc_mb=python_tracemalloc_mb,
-            _process_rss_mb=memory_info.rss / 1024 / 1024,
-            _process_vms_mb=memory_info.vms / 1024 / 1024,
+        snapshot = MemorySnapshot(
+            timestamp=timestamp,
+            cpu_memory_mb=cpu_memory_mb,
+            gpu_memory_mb=gpu_memory_mb,
+            torch_allocated_mb=torch_allocated_mb,
+            torch_cached_mb=torch_cached_mb,
+            python_tracemalloc_mb=python_tracemalloc_mb,
+            process_rss_mb=float(memory_info.rss) / 1024.0 / 1024.0,
+            process_vms_mb=float(memory_info.vms) / 1024.0 / 1024.0,
         )
 
         self.snapshots.append(snapshot)
@@ -96,7 +97,7 @@ class AdvancedMemoryProfiler:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        _start_snapshot = self.take_snapshot("{block_name}_start")
+        start_snapshot = self.take_snapshot(f"{block_name}_start")
 
         try:
             yield self
@@ -105,15 +106,15 @@ class AdvancedMemoryProfiler:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-            _end_snapshot = self.take_snapshot("{block_name}_end")
+            end_snapshot = self.take_snapshot(f"{block_name}_end")
 
             # Calculate memory delta
-            _cpu_delta = end_snapshot.cpu_memory_mb - start_snapshot.cpu_memory_mb
-            _gpu_delta = end_snapshot.gpu_memory_mb - start_snapshot.gpu_memory_mb
+            cpu_delta = end_snapshot.cpu_memory_mb - start_snapshot.cpu_memory_mb
+            gpu_delta = end_snapshot.gpu_memory_mb - start_snapshot.gpu_memory_mb
 
-            print("Memory usage for {block_name}:")
-            print("  CPU delta: {cpu_delta:+.2f} MB")
-            print("  GPU delta: {gpu_delta:+.2f} MB")
+            print(f"Memory usage for {block_name}:")
+            print(f"  CPU delta: {cpu_delta:+.2f} MB")
+            print(f"  GPU delta: {gpu_delta:+.2f} MB")
 
     def get_peak_memory(self) -> Dict[str, float]:
         """Get peak memory usage across all snapshots."""
@@ -138,39 +139,35 @@ class AdvancedMemoryProfiler:
             return {"error": "Need at least 2 snapshots for trend analysis"}
 
         # Calculate trends
-        _cpu_trend = self.snapshots[-1].cpu_memory_mb - self.snapshots[0].cpu_memory_mb
-        _gpu_trend = self.snapshots[-1].gpu_memory_mb - self.snapshots[0].gpu_memory_mb
+        cpu_trend = self.snapshots[-1].cpu_memory_mb - self.snapshots[0].cpu_memory_mb
+        gpu_trend = self.snapshots[-1].gpu_memory_mb - self.snapshots[0].gpu_memory_mb
 
-        # Memory growth rate per snapshot
-        _cpu_growth_rate = cpu_trend / len(self.snapshots)
-        _gpu_growth_rate = gpu_trend / len(self.snapshots)
+        # Memory growth rate per interval
+        intervals = max(1, len(self.snapshots) - 1)
+        cpu_growth_rate = cpu_trend / float(intervals)
+        gpu_growth_rate = gpu_trend / float(intervals)
 
         # Detect potential memory leaks (consistent upward trend)
-        _cpu_increases = sum(
+        cpu_increases = sum(
             1
             for i in range(1, len(self.snapshots))
             if self.snapshots[i].cpu_memory_mb > self.snapshots[i - 1].cpu_memory_mb
         )
-        _gpu_increases = sum(
+        gpu_increases = sum(
             1
             for i in range(1, len(self.snapshots))
             if self.snapshots[i].gpu_memory_mb > self.snapshots[i - 1].gpu_memory_mb
         )
-
-        _totalintervals = len(self.snapshots) - 1
-        _cpu_leak_probability = (
-            cpu_increases / totalintervals if totalintervals > 0 else 0
-        )
-        _gpu_leak_probability = (
-            gpu_increases / totalintervals if totalintervals > 0 else 0
-        )
+        total_intervals = max(1, len(self.snapshots) - 1)
+        cpu_leak_probability = cpu_increases / float(total_intervals)
+        gpu_leak_probability = gpu_increases / float(total_intervals)
 
         return {
             "total_snapshots": len(self.snapshots),
             "cpu_trend_mb": cpu_trend,
             "gpu_trend_mb": gpu_trend,
-            "cpu_growth_rate_mb_per_snapshot": cpu_growth_rate,
-            "gpu_growth_rate_mb_per_snapshot": gpu_growth_rate,
+            "cpu_growth_rate_mb_per_interval": cpu_growth_rate,
+            "gpu_growth_rate_mb_per_interval": gpu_growth_rate,
             "cpu_leak_probability": cpu_leak_probability,
             "gpu_leak_probability": gpu_leak_probability,
             "potential_cpu_leak": cpu_leak_probability > 0.7 and cpu_trend > 10,
@@ -182,15 +179,15 @@ class AdvancedMemoryProfiler:
         if not self.snapshots:
             return {"error": "No snapshots available"}
 
-        _peak_memory = self.get_peak_memory()
-        _trends = self.analyze_memory_trends()
+        peak_memory = self.get_peak_memory()
+        trends = self.analyze_memory_trends()
 
         # Calculate efficiency metrics
-        _baseline_memory = (
-            self.baseline_snapshot.cpu_memory_mb if self.baseline_snapshot else 0
+        baseline_memory = (
+            self.baseline_snapshot.cpu_memory_mb if self.baseline_snapshot else 0.0
         )
-        _current_memory = self.snapshots[-1].cpu_memory_mb
-        _memory_overhead = current_memory - baseline_memory
+        current_memory = self.snapshots[-1].cpu_memory_mb
+        memory_overhead = current_memory - baseline_memory
 
         return {
             "summary": {
@@ -237,13 +234,13 @@ def memory_profile_attention(
     Yields:
         Tuple of (attention_output, memory_report)
     """
-    _profiler = AdvancedMemoryProfiler()
+    profiler = AdvancedMemoryProfiler()
     profiler.set_baseline()
 
     with profiler.profile_block(profiler_name):
-        _output = attention_fn(*args, **kwargs)
+        output = attention_fn(*args, **kwargs)
 
-    _report = profiler.generate_report()
+    report = profiler.generate_report()
     yield output, report
 
 
@@ -266,9 +263,10 @@ def compare_attention_memory_usage(
         Dict of memory reports per attention function
     """
     _results = {}
+    results: Dict[str, Dict[str, Any]] = {}
 
     for name, attention_fn in attention_functions.items():
-        _profiler = AdvancedMemoryProfiler()
+        profiler = AdvancedMemoryProfiler()
         profiler.set_baseline()
 
         # Run attention with memory profiling
@@ -278,13 +276,13 @@ def compare_attention_memory_usage(
 
         with profiler.profile_block(name):
             try:
-                _output = attention_fn(Q, K, V, **kwargs)
-                _success = True
-            except Exception as _e:
-                _success = False
-                _output = None
+                output = attention_fn(Q, K, V, **kwargs)
+                success = True
+            except Exception as e:
+                success = False
+                output = None
 
-        _report = profiler.generate_report()
+        report = profiler.generate_report()
         report["success"] = success
         report["function_name"] = name
 
@@ -317,30 +315,30 @@ def benchmark_memory_efficiency(
     Returns:
         Dict with memory usage data per sequence length
     """
-    _cpu_memory_usage = []
-    _gpu_memory_usage = []
-    _torch_allocated = []
+    cpu_memory_usage: List[float] = []
+    gpu_memory_usage: List[float] = []
+    torch_allocated: List[float] = []
 
     for seq_len in sequence_lengths:
         # Generate test tensors
-        Q = torch.randn(batch_size, seq_len, d_model, _device=device)
-        K = torch.randn(batch_size, seq_len, d_model, _device=device)
-        V = torch.randn(batch_size, seq_len, d_model, _device=device)
+        Q = torch.randn(batch_size, seq_len, d_model, device=device)
+        K = torch.randn(batch_size, seq_len, d_model, device=device)
+        V = torch.randn(batch_size, seq_len, d_model, device=device)
 
-        _profiler = AdvancedMemoryProfiler()
+        profiler = AdvancedMemoryProfiler()
         profiler.set_baseline()
 
-        with profiler.profile_block("seq_len_{seq_len}"):
+        with profiler.profile_block(f"seq_len_{seq_len}"):
             try:
-                _output = attention_fn(Q, K, V)
+                output = attention_fn(Q, K, V)
             except Exception:
                 # Skip if attention fails for this sequence length
-                cpu_memory_usage.append(float("in"))
-                gpu_memory_usage.append(float("in"))
-                torch_allocated.append(float("in"))
+                cpu_memory_usage.append(float("nan"))
+                gpu_memory_usage.append(float("nan"))
+                torch_allocated.append(float("nan"))
                 continue
 
-        _report = profiler.generate_report()
+        report = profiler.generate_report()
         cpu_memory_usage.append(report["latest_snapshot"]["cpu_memory_mb"])
         gpu_memory_usage.append(report["latest_snapshot"]["gpu_memory_mb"])
         torch_allocated.append(report["latest_snapshot"]["torch_allocated_mb"])

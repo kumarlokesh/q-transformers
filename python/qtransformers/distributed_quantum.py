@@ -14,6 +14,8 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 from torch.nn.parallel import DistributedDataParallel
+import torch.nn.functional as F
+from .attention import QuantumMultiheadAttention
 
 
 class DistributedQuantumAttention(nn.Module):
@@ -43,18 +45,19 @@ class DistributedQuantumAttention(nn.Module):
 
         # Ensure num_heads is divisible by world_size for even distribution
         assert (
-            num_heads % _world_size == 0
-        ), "num_heads ({num_heads}) must be divisible by world_size ({world_size})"
+            num_heads % world_size == 0
+        ), f"num_heads ({num_heads}) must be divisible by world_size ({world_size})"
 
         self.heads_per_device = num_heads // world_size
         self.head_dim = embed_dim // num_heads
 
         # Local attention heads for this device
+        # Local attention implementation (expected to be provided elsewhere in the package)
         self.local_attention = QuantumMultiheadAttention(
-            _embed_dim=embed_dim,
-            _num_heads=self.heads_per_device,
-            _quantum_config=quantum_config,
-            _batch_first=True,
+            embed_dim=embed_dim,
+            num_heads=self.heads_per_device,
+            quantum_config=quantum_config,
+            batch_first=True,
         )
 
         # Communication group for quantum state synchronization
@@ -69,8 +72,9 @@ class DistributedQuantumAttention(nn.Module):
         """Setup distributed communication for quantum operations."""
         if dist.is_initialized():
             # Create process group for quantum attention communication
-            _ranks = list(range(self.world_size))
-            self.process_group = dist.new_group(ranks, _backend=backend)
+            ranks = list(range(self.world_size))
+            # use explicit kwargs expected by torch.distributed
+            self.process_group = dist.new_group(ranks=ranks, backend=backend)
 
     def forward(
         self,
@@ -93,27 +97,28 @@ class DistributedQuantumAttention(nn.Module):
         Returns:
             Attention output tensor
         """
-        batch_size, seq_len, _embed_dim = query.shape
+        batch_size, seq_len, embed_dim = query.shape
 
-        # Split heads across devices
-        _start_head = self.rank * self.heads_per_device
-        _end_head = (self.rank + 1) * self.heads_per_device
+        # Split heads across devices (bookkeeping)
+        # start/end head indices are available if needed
+        # start_head = self.rank * self.heads_per_device
+        # end_head = (self.rank + 1) * self.heads_per_device
 
         # Compute local attention for assigned heads
-        local_output, _local_attn_weights = self.local_attention(
+        local_output, local_attn_weights = self.local_attention(
             query,
             key,
             value,
-            _attn_mask=attn_mask,
-            _key_padding_mask=key_padding_mask,
-            _need_weights=True,
+            attn_mask=attn_mask,
+            key_padding_mask=key_padding_mask,
+            need_weights=True,
         )
 
         # Gather outputs from all devices
         if self.world_size > 1:
-            _output = self._all_gather_attention_outputs(local_output)
+            output = self._all_gather_attention_outputs(local_output)
         else:
-            _output = local_output
+            output = local_output
 
         return output
 
@@ -123,21 +128,21 @@ class DistributedQuantumAttention(nn.Module):
 
         Uses efficient communication patterns for quantum attention results.
         """
-        batch_size, seq_len, _local_dim = local_output.shape
+        batch_size, seq_len, local_dim = local_output.shape
 
         # Create buffer for gathering outputs
-        _gathered_outputs = [
+        gathered_outputs = [
             torch.zeros_like(local_output) for _ in range(self.world_size)
         ]
 
         # All-gather operation
         if self.process_group:
-            dist.all_gather(gathered_outputs, local_output, _group=self.process_group)
+            dist.all_gather(gathered_outputs, local_output, group=self.process_group)
         else:
             gathered_outputs[0] = local_output  # Single GPU case
 
         # Concatenate along head dimension
-        _full_output = torch.cat(gathered_outputs, _dim=-1)
+        full_output = torch.cat(gathered_outputs, dim=-1)
 
         return full_output
 
@@ -149,20 +154,20 @@ class DistributedQuantumAttention(nn.Module):
 
         Ensures quantum coherence is maintained in distributed setting.
         """
-        _synchronized_states = []
+        synchronized_states: List[torch.Tensor] = []
 
         for state in quantum_states:
             # Create buffer for state synchronization
-            _state_buffer = torch.zeros_like(state)
+            state_buffer = torch.zeros_like(state)
 
             # All-reduce to compute average quantum state
             if self.process_group:
                 dist.all_reduce(
-                    state_buffer, _op=dist.ReduceOp.SUM, _group=self.process_group
+                    state_buffer, op=dist.ReduceOp.SUM, group=self.process_group
                 )
-                _state_buffer = state_buffer / self.world_size
+                state_buffer = state_buffer / self.world_size
             else:
-                _state_buffer = state
+                state_buffer = state
 
             synchronized_states.append(state_buffer)
 
@@ -179,40 +184,38 @@ class DistributedQuantumAttention(nn.Module):
         batch_size, seq_len_q, _seq_len_k = attention_logits.shape
 
         # Determine sampling distribution across devices
-        _samples_per_device = num_samples // self.world_size
-        _remaining_samples = num_samples % self.world_size
+        samples_per_device = num_samples // self.world_size
+        remaining_samples = num_samples % self.world_size
 
         # This device's sample count
-        _local_samples = samples_per_device
+        local_samples = samples_per_device
         if self.rank < remaining_samples:
             local_samples += 1
 
         # Perform local quantum sampling
-        _probs = F.softmax(attention_logits, _dim=-1)
-        _local_attention_weights = torch.zeros_like(probs)
+        probs = F.softmax(attention_logits, dim=-1)
+        local_attention_weights = torch.zeros_like(probs)
 
         for b in range(batch_size):
             for q in range(seq_len_q):
-                _prob_row = probs[b, q, :]
+                prob_row = probs[b, q, :]
                 if local_samples > 0 and prob_row.sum() > 1e-8:
-                    _samples = torch.multinomial(
-                        prob_row, local_samples, _replacement=True
+                    samples = torch.multinomial(
+                        prob_row, local_samples, replacement=True
                     )
-                    _sample_counts = torch.bincount(samples, _minlength=seq_len_k)
-                    local_attention_weights[b, q, :] = (
-                        sample_counts.float() / local_samples
+                    sample_counts = torch.bincount(samples, minlength=_seq_len_k)
+                    local_attention_weights[b, q, :] = sample_counts.float() / float(
+                        local_samples
                     )
 
         # Gather and combine attention weights from all devices
         if self.world_size > 1:
             # All-reduce to combine sampling results
             dist.all_reduce(
-                local_attention_weights,
-                _op=dist.ReduceOp.SUM,
-                _group=self.process_group,
+                local_attention_weights, op=dist.ReduceOp.SUM, group=self.process_group
             )
             # Normalize by number of devices
-            _local_attention_weights = local_attention_weights / self.world_size
+            local_attention_weights = local_attention_weights / float(self.world_size)
 
         return local_attention_weights
 
@@ -245,25 +248,23 @@ class QuantumGradientSynchronizer:
 
         Uses optimized communication patterns for quantum gradients.
         """
-        _handles = []
+        handles: List[Any] = []
 
         for name, param in self.quantum_params:
             if param.grad is not None:
                 # Copy gradient to buffer
                 self.gradient_buffers[name].copy_(param.grad)
 
-                # All-reduce gradient
-                _handle = dist.all_reduce(
-                    self.gradient_buffers[name],
-                    _op=dist.ReduceOp.SUM,
-                    _async_op=async_op,
+                # All-reduce gradient (may return a handle when async)
+                handle = dist.all_reduce(
+                    self.gradient_buffers[name], op=dist.ReduceOp.SUM, async_op=async_op
                 )
 
                 if async_op:
                     handles.append(handle)
                 else:
                     # Average gradient
-                    self.gradient_buffers[name] /= self.world_size
+                    self.gradient_buffers[name] /= float(self.world_size)
                     param.grad.copy_(self.gradient_buffers[name])
 
         # Wait for async operations
@@ -271,10 +272,10 @@ class QuantumGradientSynchronizer:
             for handle in handles:
                 handle.wait()
 
-            # Apply averaged gradients
+            # Apply averaged gradients after async ops complete
             for name, param in self.quantum_params:
                 if param.grad is not None:
-                    self.gradient_buffers[name] /= self.world_size
+                    self.gradient_buffers[name] /= float(self.world_size)
                     param.grad.copy_(self.gradient_buffers[name])
 
     def apply_quantum_noise_reduction(self):
@@ -286,7 +287,7 @@ class QuantumGradientSynchronizer:
         for name, param in self.quantum_params:
             if param.grad is not None:
                 # Apply gradient clipping specific to quantum parameters
-                _grad_norm = torch.norm(param.grad)
+                grad_norm = torch.norm(param.grad)
                 if grad_norm > 1.0:  # Quantum-specific threshold
                     param.grad *= 0.5 / grad_norm
 
@@ -313,11 +314,11 @@ class MultiGPUQuantumTransformer(nn.Module):
         self.attention_layers = nn.ModuleList(
             [
                 DistributedQuantumAttention(
-                    _embed_dim=config["hidden_size"],
-                    _num_heads=config["num_attention_heads"],
-                    _world_size=world_size,
-                    _rank=rank,
-                    _quantum_config=config.get("quantum_config", {}),
+                    embed_dim=config["hidden_size"],
+                    num_heads=config["num_attention_heads"],
+                    world_size=world_size,
+                    rank=rank,
+                    quantum_config=config.get("quantum_config", {}),
                 )
                 for _ in range(config["num_hidden_layers"])
             ]
@@ -357,7 +358,7 @@ class MultiGPUQuantumTransformer(nn.Module):
         """Forward pass with distributed quantum attention."""
 
         # Embeddings
-        _hidden_states = self.embeddings(input_ids)
+        hidden_states = self.embeddings(input_ids)
 
         # Apply attention layers with load balancing
         for i, (attn_layer, norm_layer, ff_layer) in enumerate(
@@ -366,20 +367,20 @@ class MultiGPUQuantumTransformer(nn.Module):
             # Load balancing decision
             if self.load_balancer.should_compute_layer(i):
                 # Quantum attention with residual connection
-                _attn_output = attn_layer(
+                attn_output, attn_weights = attn_layer(
                     hidden_states,
                     hidden_states,
                     hidden_states,
-                    _key_padding_mask=attention_mask,
+                    key_padding_mask=attention_mask,
                 )
-                _hidden_states = norm_layer(hidden_states + attn_output)
+                hidden_states = norm_layer(hidden_states + attn_output)
 
                 # Feed-forward with residual connection
-                _ff_output = ff_layer(hidden_states)
-                _hidden_states = norm_layer(hidden_states + ff_output)
+                ff_output = ff_layer(hidden_states)
+                hidden_states = norm_layer(hidden_states + ff_output)
             else:
                 # Skip computation on this device, will receive from others
-                _hidden_states = self.load_balancer.receive_layer_output(
+                hidden_states = self.load_balancer.receive_layer_output(
                     i, hidden_states
                 )
 
@@ -427,15 +428,16 @@ class QuantumLoadBalancer:
         Returns:
             Layer output tensor
         """
-        _assigned_device = layer_idx % self.world_size
+        assigned_device = layer_idx % self.world_size
 
-        if _assigned_device == self.rank:
+        if assigned_device == self.rank:
             # This device computed the layer
             return input_tensor
         else:
             # Receive from the assigned device
-            _output_tensor = torch.zeros_like(input_tensor)
-            dist.broadcast(output_tensor, _src=assigned_device)
+            output_tensor = torch.zeros_like(input_tensor)
+            # broadcast in-place into output_tensor from the assigned device
+            dist.broadcast(output_tensor, src=assigned_device)
             return output_tensor
 
     def update_computation_times(self, layer_idx: int, computation_time: float):
@@ -450,21 +452,21 @@ class QuantumLoadBalancer:
             New layer assignment mapping {layer_idx: device_rank}
         """
         if not self.computation_times:
-            # Use round-robin if no timing data
-            return {i: i % self.world_size for i in range(len(self.computation_times))}
+            # Use round-robin if no timing data; nothing to rebalance
+            return {}
 
         # Sort layers by computation time (descending)
-        _sorted_layers = sorted(
-            self.computation_times.items(), _key=lambda x: x[1], _reverse=True
+        sorted_layers = sorted(
+            self.computation_times.items(), key=lambda x: x[1], reverse=True
         )
 
         # Greedy assignment to balance load
-        _device_loads = [0.0] * self.world_size
-        _new_assignments = {}
+        device_loads = [0.0] * self.world_size
+        new_assignments: Dict[int, int] = {}
 
         for layer_idx, comp_time in sorted_layers:
             # Assign to device with minimum current load
-            _min_device = min(range(self.world_size), _key=lambda i: device_loads[i])
+            min_device = min(range(self.world_size), key=lambda i: device_loads[i])
             new_assignments[layer_idx] = min_device
             device_loads[min_device] += comp_time
 
@@ -534,7 +536,7 @@ class QuantumCommunicationOptimizer:
 
         Uses sparsity and compression to reduce communication volume.
         """
-        _optimized_patterns = []
+        _optimized_patterns: List[torch.Tensor] = []
 
         for pattern in attention_patterns:
             if self.compression_enabled:
@@ -542,13 +544,13 @@ class QuantumCommunicationOptimizer:
                 _sparse_pattern = self._sparsify_attention(pattern, sparsity_threshold)
 
                 # Compress using quantization
-                _compressed_pattern = self._quantize_attention(sparse_pattern)
+                _compressed_pattern = self._quantize_attention(_sparse_pattern)
 
-                optimized_patterns.append(compressed_pattern)
+                _optimized_patterns.append(_compressed_pattern)
             else:
-                optimized_patterns.append(pattern)
+                _optimized_patterns.append(pattern)
 
-        return optimized_patterns
+        return _optimized_patterns
 
     def _sparsify_attention(
         self, attention_matrix: torch.Tensor, threshold: float
@@ -556,13 +558,13 @@ class QuantumCommunicationOptimizer:
         """Apply sparsification to attention matrix."""
         # Zero out small attention weights
         _sparse_matrix = attention_matrix.clone()
-        sparse_matrix[sparse_matrix < threshold] = 0.0
+        _sparse_matrix[_sparse_matrix < threshold] = 0.0
 
         # Renormalize rows
-        _row_sums = sparse_matrix.sum(dim=-1, _keepdim=True)
-        _sparse_matrix = sparse_matrix / (row_sums + 1e-8)
+        _row_sums = _sparse_matrix.sum(dim=-1, keepdim=True)
+        _sparse_matrix = _sparse_matrix / (_row_sums + 1e-8)
 
-        return sparse_matrix
+        return _sparse_matrix
 
     def _quantize_attention(self, attention_matrix: torch.Tensor) -> torch.Tensor:
         """Apply quantization to reduce communication size."""
@@ -571,19 +573,19 @@ class QuantumCommunicationOptimizer:
         _max_val = attention_matrix.max()
 
         # Scale to [0, 255] and quantize
-        _scaled = (attention_matrix - min_val) / (max_val - min_val + 1e-8)
-        _quantized = torch.round(scaled * 255).byte()
+        _scaled = (attention_matrix - _min_val) / (_max_val - _min_val + 1e-8)
+        _quantized = torch.round(_scaled * 255).byte()
 
         # Dequantize for computation
-        _dequantized = quantized.float() / 255.0 * (max_val - min_val) + min_val
+        _dequantized = _quantized.float() / 255.0 * (_max_val - _min_val) + _min_val
 
-        return dequantized
+        return _dequantized
 
 
 # Factory function for creating distributed quantum models
 def create_distributed_quantum_transformer(
     config: Dict[str, Any], world_size: int, rank: int
-) -> MultiGPUQuantumTransformer:
+) -> Any:
     """
     Create distributed quantum transformer model.
 
@@ -596,14 +598,21 @@ def create_distributed_quantum_transformer(
         Distributed quantum transformer model
     """
 
-    _model = MultiGPUQuantumTransformer(config, world_size, rank)
+    # Build a distributed quantum transformer using the DistributedQuantumAttention
+    _model = DistributedQuantumAttention(
+        embed_dim=config.get("embed_dim", 768),
+        num_heads=config.get("num_heads", 12),
+        world_size=world_size,
+        rank=rank,
+        quantum_config=config.get("quantum_config", {}),
+    )
 
     # Wrap with DistributedDataParallel for standard parameters
     if world_size > 1:
         _model = DistributedDataParallel(
-            model,
-            _device_ids=[rank] if torch.cuda.is_available() else None,
-            _find_unused_parameters=True,  # For quantum attention modules
+            _model,
+            device_ids=[rank] if torch.cuda.is_available() else None,
+            find_unused_parameters=True,  # For quantum attention modules
         )
 
-    return model
+    return _model

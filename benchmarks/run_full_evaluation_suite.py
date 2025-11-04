@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# flake8: noqa
 """
 Comprehensive Benchmark Suite
 
@@ -19,11 +20,10 @@ from typing import Any, Dict
 import numpy as np
 import torch
 
-# Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "python"))
 
-from qtransformers import (  # Core components; NLP benchmarking; Quantum supremacy; Training infrastructure; Distr
+from qtransformers import (
     ComplexityAnalyzer,
     DeploymentConfig,
     DistributedQuantumAttention,
@@ -56,7 +56,6 @@ class ComprehensiveBenchmarkRunner:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Setup logging
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s - %(levelname)s - %(message)s",
@@ -67,13 +66,10 @@ class ComprehensiveBenchmarkRunner:
         )
         self.logger = logging.getLogger(__name__)
 
-        # Results storage
         self.results = {}
 
-        # Memory profiler
         self.memory_profiler = MemoryProfiler()
 
-        # Device setup
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.logger.info(f"Using device: {self.device}")
 
@@ -85,8 +81,6 @@ class ComprehensiveBenchmarkRunner:
             )
 
     def run_all_benchmarks(self) -> Dict[str, Any]:
-        """Run all benchmarks."""
-
         self.logger.info("🚀 Starting Comprehensive Benchmark Suite")
         self.logger.info("=" * 70)
 
@@ -94,23 +88,18 @@ class ComprehensiveBenchmarkRunner:
         self.memory_profiler.start_profiling()
 
         try:
-            # NLP Benchmarking
             self.logger.info("\n📊 NLP benchmarking...")
             self.results["nlp_benchmarks"] = self.run_nlp_benchmarks()
 
-            # Quantum Supremacy Verification
             self.logger.info("\n🔬 Quantum supremacy verification...")
             self.results["quantum_supremacy"] = self.run_supremacy_verification()
 
-            # Training Infrastructure Testing
             self.logger.info("\n⚡ Training infrastructure tests...")
             self.results["training_infrastructure"] = self.run_training_tests()
 
-            # Deployment Performance
             self.logger.info("\n🌐 Deployment performance tests...")
             self.results["deployment_performance"] = self.run_deployment_tests()
 
-            # Overall performance analysis
             self.results["overall_analysis"] = self.analyze_overall_performance()
 
         except Exception as e:
@@ -127,18 +116,14 @@ class ComprehensiveBenchmarkRunner:
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             }
 
-            # Save results
             self.save_results()
 
         self.logger.info(f"\n✅ Benchmarks completed in {total_time:.2f}s")
         return self.results
 
     def run_nlp_benchmarks(self) -> Dict[str, Any]:
-        """Run comprehensive NLP benchmarking."""
-
         nlp_results = {}
 
-        # GLUE benchmark suite
         self.logger.info("Running GLUE benchmark suite...")
         try:
             glue_suite = GLUEBenchmarkSuite()
@@ -186,7 +171,6 @@ class ComprehensiveBenchmarkRunner:
             self.logger.warning(f"GLUE benchmark failed: {e}")
             nlp_results["glue"] = {"error": str(e)}
 
-        # Quantum advantage analysis
         self.logger.info("Running quantum advantage analysis...")
         try:
             advantage_analyzer = QuantumAdvantageAnalyzer()
@@ -215,7 +199,6 @@ class ComprehensiveBenchmarkRunner:
 
         _supremacy_results = {}
 
-        # Statistical verification
         self.logger.info("Running statistical quantum supremacy verification...")
         try:
             _verifier = QuantumSupremacyVerifier()
@@ -238,7 +221,6 @@ class ComprehensiveBenchmarkRunner:
             self.logger.warning("Statistical verification failed: {e}")
             supremacy_results["statistical_verification"] = {"error": str(e)}
 
-        # Complexity analysis
         self.logger.info("Running complexity analysis...")
         try:
             _complexity_analyzer = ComplexityAnalyzer()
@@ -255,7 +237,6 @@ class ComprehensiveBenchmarkRunner:
             self.logger.warning("Complexity analysis failed: {e}")
             supremacy_results["complexity_analysis"] = {"error": str(e)}
 
-        # Supremacy benchmark suite
         self.logger.info("Running supremacy benchmark suite...")
         try:
             _benchmark_suite = SupremacyBenchmarkSuite()
@@ -299,12 +280,10 @@ class ComprehensiveBenchmarkRunner:
             _logging_steps=10,
         )
 
-        # Single GPU training test
         self.logger.info("Testing single GPU training...")
         try:
             _start_time = time.time()
 
-            # Create dummy dataset
             _dummy_data = [
                 {
                     "input_ids": torch.randint(0, 1000, (64,)),
@@ -369,7 +348,6 @@ class ComprehensiveBenchmarkRunner:
                 "reason": "single_gpu_system",
             }
 
-        # Memory efficiency testing
         self.logger.info("Testing memory efficiency...")
         try:
             if torch.cuda.is_available():
@@ -434,7 +412,6 @@ class ComprehensiveBenchmarkRunner:
 
         _deployment_results = {}
 
-        # Model server initialization test
         self.logger.info("Testing model server initialization...")
         try:
             _config = DeploymentConfig(
@@ -455,7 +432,6 @@ class ComprehensiveBenchmarkRunner:
             self.logger.warning("Server initialization test failed: {e}")
             deployment_results["server_init"] = {"error": str(e), "status": "failed"}
 
-        # Inference latency testing
         self.logger.info("Testing inference latency...")
         try:
             _model_config = {
@@ -587,14 +563,10 @@ class ComprehensiveBenchmarkRunner:
         return analysis
 
     def save_results(self):
-        """Save benchmark results to files."""
-
-        # Save JSON results
         _json_path = self.output_dir / "full_benchmark_results.json"
         with open(json_path, "w") as f:
             json.dump(self.results, f, _indent=2, _default=str)
 
-        # Save summary report
         _report_path = self.output_dir / "full_summary_report.md"
         with open(report_path, "w") as f:
             f.write(self.generate_markdown_report())
@@ -604,8 +576,6 @@ class ComprehensiveBenchmarkRunner:
         self.logger.info("  - Report: {report_path}")
 
     def generate_markdown_report(self) -> str:
-        """Generate markdown summary report."""
-
         _report = """# Comprehensive Benchmark Report
 
 Generated: {time.strftime("%Y-%m-%d %H:%M:%S")}

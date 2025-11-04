@@ -73,32 +73,33 @@ class QuantumTransformerBlock(nn.Module):
         }
 
         # Quantum multi-head attention
+        # Quantum multi-head attention (implementation provided elsewhere)
         self.self_attn = QuantumMultiheadAttention(
-            _embed_dim=d_model,
-            _num_heads=nhead,
-            _dropout=dropout,
-            _batch_first=batch_first,
-            _quantum_config=self.quantum_config,
+            embed_dim=d_model,
+            num_heads=nhead,
+            dropout=dropout,
+            batch_first=batch_first,
+            quantum_config=self.quantum_config,
         )
 
         # Feed-forward network
         self.linear1 = nn.Linear(d_model, dim_feedforward)
         self.linear2 = nn.Linear(dim_feedforward, d_model)
 
-        self.norm1 = nn.LayerNorm(d_model, _eps=layer_norm_eps)
-        self.norm2 = nn.LayerNorm(d_model, _eps=layer_norm_eps)
+        self.norm1 = nn.LayerNorm(d_model, eps=layer_norm_eps)
+        self.norm2 = nn.LayerNorm(d_model, eps=layer_norm_eps)
 
         self.dropout = nn.Dropout(dropout)
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
 
         # Activation function
-        if _activation == "relu":
+        if activation == "relu":
             self.activation = F.relu
-        elif _activation == "gelu":
+        elif activation == "gelu":
             self.activation = F.gelu
         else:
-            raise ValueError("Unknown activation: {activation}")
+            raise ValueError(f"Unknown activation: {activation}")
 
         # Advanced quantum components (optional)
         if self.quantum_config.get("use_advanced_sampling", False):
@@ -133,26 +134,26 @@ class QuantumTransformerBlock(nn.Module):
         # Pre-norm or post-norm architecture
         if self.norm_first:
             # Pre-norm: LayerNorm -> Attention -> Residual
-            _src_norm = self.norm1(src)
-            attn_output, _attn_weights = self._self_attention_block(
+            src_norm = self.norm1(src)
+            attn_output, attn_weights = self._self_attention_block(
                 src_norm, src_norm, src_norm, src_mask, src_key_padding_mask
             )
-            _src = src + self.dropout1(attn_output)
+            src = src + self.dropout1(attn_output)
 
             # Pre-norm: LayerNorm -> FFN -> Residual
-            _src_norm2 = self.norm2(src)
-            _ffn_output = self._feedforward_block(src_norm2)
-            _src = src + self.dropout2(ffn_output)
+            src_norm2 = self.norm2(src)
+            ffn_output = self._feedforward_block(src_norm2)
+            src = src + self.dropout2(ffn_output)
         else:
             # Post-norm: Attention -> Residual -> LayerNorm
-            attn_output, _attn_weights = self._self_attention_block(
+            attn_output, attn_weights = self._self_attention_block(
                 src, src, src, src_mask, src_key_padding_mask
             )
-            _src = self.norm1(src + self.dropout1(attn_output))
+            src = self.norm1(src + self.dropout1(attn_output))
 
             # Post-norm: FFN -> Residual -> LayerNorm
-            _ffn_output = self._feedforward_block(src)
-            _src = self.norm2(src + self.dropout2(ffn_output))
+            ffn_output = self._feedforward_block(src)
+            src = self.norm2(src + self.dropout2(ffn_output))
 
         if return_attention_weights:
             return src, attn_weights
@@ -169,13 +170,13 @@ class QuantumTransformerBlock(nn.Module):
         """Self-attention block with quantum enhancement."""
 
         # Apply quantum multi-head attention
-        attn_output, _attn_weights = self.self_attn(
+        attn_output, attn_weights = self.self_attn(
             query,
             key,
             value,
-            _attn_mask=attn_mask,
-            _key_padding_mask=key_padding_mask,
-            _need_weights=True,
+            attn_mask=attn_mask,
+            key_padding_mask=key_padding_mask,
+            need_weights=True,
         )
 
         return attn_output, attn_weights
@@ -229,14 +230,14 @@ class QuantumTransformerEncoder(nn.Module):
         self, layer: QuantumTransformerBlock
     ) -> QuantumTransformerBlock:
         """Create a deep copy of the layer with independent parameters."""
-        _layer_copy = QuantumTransformerBlock(
-            _d_model=layer.d_model,
-            _nhead=layer.nhead,
-            _dim_feedforward=layer.linear1.out_features,
-            _dropout=layer.dropout.p,
-            _quantum_config=layer.quantum_config,
-            _batch_first=layer.batch_first,
-            _norm_first=layer.norm_first,
+        layer_copy = QuantumTransformerBlock(
+            d_model=layer.d_model,
+            nhead=layer.nhead,
+            dim_feedforward=layer.linear1.out_features,
+            dropout=layer.dropout.p,
+            quantum_config=layer.quantum_config,
+            batch_first=layer.batch_first,
+            norm_first=layer.norm_first,
         )
         return layer_copy
 
@@ -259,25 +260,23 @@ class QuantumTransformerEncoder(nn.Module):
         Returns:
             Final encoder output and optionally all layer outputs
         """
-        _output = src
-        _layer_outputs = []
+        output = src
+        layer_outputs: List[torch.Tensor] = []
 
         for i, layer in enumerate(self.layers):
             if self.gradient_checkpointing and self.training:
                 # Use gradient checkpointing to save memory
-                _output = torch.utils.checkpoint.checkpoint(
+                output = torch.utils.checkpoint.checkpoint(
                     layer, output, mask, src_key_padding_mask
                 )
             else:
-                _output = layer(
-                    output, _src_mask=mask, _src_key_padding_mask=src_key_padding_mask
-                )
+                output = layer(output, mask, src_key_padding_mask)
 
             if return_layer_outputs:
                 layer_outputs.append(output.clone())
 
         if self.norm is not None:
-            _output = self.norm(output)
+            output = self.norm(output)
 
         if return_layer_outputs:
             return output, layer_outputs
@@ -322,20 +321,20 @@ class QuantumTransformerDecoder(nn.Module):
     ) -> torch.Tensor:
         """Decoder forward pass with quantum cross-attention."""
 
-        _output = tgt
+        output = tgt
 
         for layer in self.layers:
-            _output = layer(
+            output = layer(
                 output,
                 memory,
-                _tgt_mask=tgt_mask,
-                _memory_mask=memory_mask,
-                _tgt_key_padding_mask=tgt_key_padding_mask,
-                _memory_key_padding_mask=memory_key_padding_mask,
+                tgt_mask,
+                memory_mask,
+                tgt_key_padding_mask,
+                memory_key_padding_mask,
             )
 
         if self.norm is not None:
-            _output = self.norm(output)
+            output = self.norm(output)
 
         return output
 
@@ -392,12 +391,12 @@ class ScalableQuantumTransformer(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
         # Quantum transformer encoder
-        _encoder_layer = QuantumTransformerBlock(
-            _d_model=d_model,
-            _nhead=nhead,
-            _dim_feedforward=dim_feedforward,
-            _dropout=dropout,
-            _quantum_config=quantum_config,
+        encoder_layer = QuantumTransformerBlock(
+            d_model=d_model,
+            nhead=nhead,
+            dim_feedforward=dim_feedforward,
+            dropout=dropout,
+            quantum_config=quantum_config,
         )
 
         self.encoder = QuantumTransformerEncoder(

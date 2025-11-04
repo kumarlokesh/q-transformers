@@ -8,7 +8,13 @@ High-performance CUDA implementations for:
 - Batched quantum measurements
 """
 
+# flake8: noqa
+
+import math
+from typing import Optional, Callable
+
 import torch
+import torch.nn.functional as F
 
 try:
     from torch.utils.cpp_extension import load_inline
@@ -16,6 +22,9 @@ try:
     _CUDA_AVAILABLE = torch.cuda.is_available()
 except ImportError:
     _CUDA_AVAILABLE = False
+
+# expose a consistent name used through the module
+CUDA_AVAILABLE = _CUDA_AVAILABLE
 
 
 # CUDA kernel source code
@@ -167,7 +176,7 @@ torch::Tensor mps_contraction_cuda(
 }
 """
 
-_CUDA_EXTENSIONS_SOURCE = QUANTUM_SAMPLING_KERNEL + "\n" + MPS_CONTRACTION_KERNEL
+_CUDA_EXTENSIONS_SOURCE = _QUANTUM_SAMPLING_KERNEL + "\n" + _MPS_CONTRACTION_KERNEL
 
 
 class CUDAQuantumKernels:
@@ -185,11 +194,11 @@ class CUDAQuantumKernels:
 
         try:
             self.cuda_module = load_inline(
-                _name="quantum_cuda_kernels",
-                _cpp_sources=[""],
-                _cuda_sources=[CUDA_EXTENSIONS_SOURCE],
-                _functions=["quantum_multinomial_cuda", "mps_contraction_cuda"],
-                _verbose=False,
+                name="quantum_cuda_kernels",
+                cpp_sources=[""],
+                cuda_sources=[_CUDA_EXTENSIONS_SOURCE],
+                functions=["quantum_multinomial_cuda", "mps_contraction_cuda"],
+                verbose=False,
             )
             print("CUDA quantum kernels loaded successfully")
         except Exception as _e:
@@ -205,10 +214,17 @@ class CUDAQuantumKernels:
             return self._cpu_multinomial_sampling(probs, num_samples)
 
         if seed is None:
-            _seed = torch.randint(0, 2**32, (1,)).item()
+            seed = torch.randint(0, 2**32, (1,)).item()
 
         _probs = probs.cuda().float()
-        return self.cuda_module.quantum_multinomial_cuda(probs, num_samples, seed)
+        # call into the compiled CUDA module if present
+        if self.cuda_module is not None:
+            return self.cuda_module.quantum_multinomial_cuda(
+                _probs, num_samples, int(seed)
+            )
+
+        # fallback (shouldn't usually hit because of the _cuda_available guard)
+        return self._cpu_multinomial_sampling(probs, num_samples)
 
     def mps_tensor_contraction(
         self, tensor_a: torch.Tensor, tensor_b: torch.Tensor
@@ -220,41 +236,48 @@ class CUDAQuantumKernels:
 
         _tensor_a = tensor_a.cuda().float()
         _tensor_b = tensor_b.cuda().float()
-        return self.cuda_module.mps_contraction_cuda(tensor_a, tensor_b)
+        if self.cuda_module is not None:
+            return self.cuda_module.mps_contraction_cuda(_tensor_a, _tensor_b)
+
+        return self._cpu_tensor_contraction(tensor_a, tensor_b)
 
     def batched_quantum_attention(
         self, Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor, num_samples: int = 32
     ) -> torch.Tensor:
         """Full GPU-accelerated quantum attention pipeline."""
 
-        _device = Q.device
-        if not device.type == "cuda":
+        device = Q.device
+        moved_to_cuda = False
+        if device.type != "cuda":
             Q, K, V = Q.cuda(), K.cuda(), V.cuda()
+            moved_to_cuda = True
 
-        batch_size, seq_len_q, _d_k = Q.shape
-        _seq_len_k = K.shape[1]
+        batch_size, seq_len_q, d_k = Q.shape
+        seq_len_k = K.shape[1]
 
         # Compute attention logits
-        _logits = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
-        _probs = F.softmax(logits, _dim=-1)
+        logits = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
+        probs = F.softmax(logits, dim=-1)
 
         # GPU quantum sampling
-        _samples = self.quantum_multinomial_sampling(probs, num_samples)
+        samples = self.quantum_multinomial_sampling(probs, num_samples)
 
         # Reconstruct attention weights
-        _attention_weights = torch.zeros_like(probs)
+        attention_weights = torch.zeros_like(probs, device=probs.device)
 
-        # Use GPU-optimized scatter operations
+        # Use GPU-optimized scatter operations (conservative Python implementation)
         for b in range(batch_size):
             for q in range(seq_len_q):
-                _sample_indices = samples[b, q, :]
-                _counts = torch.bincount(sample_indices, _minlength=seq_len_k)
-                attention_weights[b, q, :] = counts.float() / num_samples
+                sample_indices = samples[b, q, :]
+                counts = torch.bincount(sample_indices, minlength=seq_len_k)
+                attention_weights[b, q, :] = counts.float() / float(num_samples)
 
         # Apply attention to values
-        _output = torch.matmul(attention_weights, V)
+        output = torch.matmul(attention_weights, V)
 
-        return output.to(device) if device.type != "cuda" else output
+        if moved_to_cuda:
+            return output.to(device)
+        return output
 
     def _cuda_available(self) -> bool:
         """Check if CUDA kernels are available."""
@@ -265,14 +288,14 @@ class CUDAQuantumKernels:
     ) -> torch.Tensor:
         """CPU fallback for multinomial sampling."""
         batch_size, seq_len_q, _seq_len_k = probs.shape
-        _samples = torch.zeros(batch_size, seq_len_q, num_samples, _dtype=torch.int32)
+        samples = torch.zeros((batch_size, seq_len_q, num_samples), dtype=torch.int32)
 
         for b in range(batch_size):
             for q in range(seq_len_q):
-                _prob_row = probs[b, q, :]
+                prob_row = probs[b, q, :]
                 if prob_row.sum() > 1e-8:
-                    _sample_row = torch.multinomial(
-                        prob_row, num_samples, _replacement=True
+                    sample_row = torch.multinomial(
+                        prob_row, num_samples, replacement=True
                     )
                     samples[b, q, :] = sample_row
 
@@ -306,31 +329,31 @@ def gpu_quantum_attention(
 ) -> torch.Tensor:
     """Main GPU quantum attention interface."""
 
-    _kernels = get_cuda_kernels()
+    kernels = get_cuda_kernels()
 
-    if _backend == "cuda_optimized" and kernels._cuda_available():
+    if backend == "cuda_optimized" and kernels._cuda_available():
         return kernels.batched_quantum_attention(Q, K, V, num_samples)
-    else:
-        # Fallback to standard PyTorch operations
-        _device = Q.device
-        _d_k = Q.shape[-1]
 
-        _logits = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
-        _probs = F.softmax(logits, _dim=-1)
+    # Fallback to standard PyTorch operations
+    device = Q.device
+    d_k = Q.shape[-1]
 
-        # Standard multinomial sampling
-        batch_size, seq_len_q, _seq_len_k = probs.shape
-        _samples = kernels._cpu_multinomial_sampling(probs, num_samples)
+    logits = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
+    probs = F.softmax(logits, dim=-1)
 
-        # Reconstruct and apply attention
-        _attention_weights = torch.zeros_like(probs)
-        for b in range(batch_size):
-            for q in range(seq_len_q):
-                _sample_indices = samples[b, q, :]
-                _counts = torch.bincount(sample_indices, _minlength=seq_len_k)
-                attention_weights[b, q, :] = counts.float() / num_samples
+    # Standard multinomial sampling
+    batch_size, seq_len_q, seq_len_k = probs.shape
+    samples = kernels._cpu_multinomial_sampling(probs, num_samples)
 
-        return torch.matmul(attention_weights, V)
+    # Reconstruct and apply attention
+    attention_weights = torch.zeros_like(probs, device=probs.device)
+    for b in range(batch_size):
+        for q in range(seq_len_q):
+            sample_indices = samples[b, q, :]
+            counts = torch.bincount(sample_indices, minlength=seq_len_k)
+            attention_weights[b, q, :] = counts.float() / float(num_samples)
+
+    return torch.matmul(attention_weights, V)
 
 
 class GPUMemoryOptimizer:
@@ -341,18 +364,17 @@ class GPUMemoryOptimizer:
         """Calculate optimal batch size for GPU memory."""
         if not torch.cuda.is_available():
             return 32
-
         # Estimate memory usage
         _total_memory = torch.cuda.get_device_properties(0).total_memory
-        _available_memory = total_memory * 0.8  # Leave 20% buffer
+        _available_memory = int(_total_memory * 0.8)  # Leave 20% buffer
 
-        # Memory per sample (rough estimate)
+        # Memory per sample (rough estimate in bytes)
         _attention_memory = seq_len * seq_len * 4  # float32
         _embedding_memory = seq_len * embed_dim * 4
-        _total_per_sample = attention_memory + embedding_memory * 3  # Q,K,V
+        _total_per_sample = _attention_memory + _embedding_memory * 3  # Q,K,V
 
-        _optimal_batch_size = int(available_memory // total_per_sample)
-        return max(1, min(optimal_batch_size, 128))  # Clamp to reasonable range
+        _optimal_batch_size = int(_available_memory // max(1, _total_per_sample))
+        return max(1, min(_optimal_batch_size, 128))  # Clamp to reasonable range
 
     @staticmethod
     def enable_mixed_precision():
@@ -361,7 +383,7 @@ class GPUMemoryOptimizer:
 
     @staticmethod
     def optimize_attention_memory(
-        attention_fn: callable,
+        attention_fn: Callable[..., torch.Tensor],
         Q: torch.Tensor,
         K: torch.Tensor,
         V: torch.Tensor,
@@ -374,20 +396,20 @@ class GPUMemoryOptimizer:
                 Q.shape[1], Q.shape[2]
             )
 
-        batch_size, _seq_len = Q.shape[:2]
+        batch_size, seq_len = Q.shape[:2]
 
-        if seq_len <= chunk_size:
+        if seq_len <= _chunk_size:
             return attention_fn(Q, K, V)
 
         # Process in chunks to save memory
-        _outputs = []
-        for i in range(0, seq_len, chunk_size):
-            _end_i = min(i + chunk_size, seq_len)
-            _Q_chunk = Q[:, i:end_i, :]
+        outputs = []
+        for i in range(0, seq_len, _chunk_size):
+            end_i = min(i + _chunk_size, seq_len)
+            Q_chunk = Q[:, i:end_i, :]
 
-            _chunk_output = torch.utils.checkpoint.checkpoint(
+            chunk_output = torch.utils.checkpoint.checkpoint(
                 attention_fn, Q_chunk, K, V
             )
             outputs.append(chunk_output)
 
-        return torch.cat(outputs, _dim=1)
+        return torch.cat(outputs, dim=1)

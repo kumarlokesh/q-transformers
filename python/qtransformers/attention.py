@@ -586,7 +586,6 @@ def quantum_inspired_attention_prototype(
     ), "Prototype expects 3D tensors (B, N, D)"
     B, Nq, D = Q.shape
     Nk = K.shape[-2]
-    device = Q.device
 
     # Compute attention logits
     logits = torch.matmul(Q, K.transpose(-2, -1)) / (D**0.5)  # (B, Nq, Nk)

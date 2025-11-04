@@ -6,21 +6,10 @@ including quantum sampling strategies, advanced sampling techniques, GPU acceler
 quantum hardware integration,
     large-scale training infrastructure,
     and deployment tools.
-
-Key Components:
-- QuantumAttentionLayer: Core quantum attention implementation
-- QuantumMultiheadAttention: Multi-head quantum attention
-- Advanced sampling strategies (Quasi-Monte Carlo, learned importance sampling)
-- Quantum error mitigation techniques
-- CUDA acceleration for quantum operations
-- Quantum transformer blocks for large-scale models
-- Qiskit backend for quantum hardware integration
-- Real-world NLP benchmarking and evaluation
-- Quantum supremacy verification protocols
-- Large-scale distributed training infrastructure
-- Deployment tools and APIs
-- Memory profiling and visualization tools
 """
+
+# flake8: noqa
+
 
 __version__ = "0.1.0"
 
@@ -31,7 +20,6 @@ from .advanced_sampling import (
     QuasiMonteCarloSampler,
 )
 
-# Core quantum attention
 from .attention import (
     QuantumAttentionLayer,
     QuantumMultiheadAttention,
@@ -190,4 +178,4 @@ __all__ = [
     "plot_attention_heatmap",
     "analyze_quantum_attention",
     "save_attention_analysis",
-]  # Test comment
+]

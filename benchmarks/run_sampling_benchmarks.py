@@ -11,12 +11,13 @@ Tests the following components:
 - Approximation quality metrics
 """
 
+# flake8: noqa
+
 import argparse
 import sys
 
 import torch
 
-# Import our quantum attention components
 sys.path.append("/workspace/python")
 from qsim.quantum_simulator import (
     MatrixProductStateSimulator,

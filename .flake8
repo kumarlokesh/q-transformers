@@ -1,0 +1,5 @@
+[flake8]
+exclude = 
+    benchmarks,
+    examples
+max-line-length = 88

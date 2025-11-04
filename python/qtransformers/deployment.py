@@ -12,6 +12,12 @@ Complete deployment infrastructure:
 
 import logging
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
+import time
+import json
+from pathlib import Path
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -173,12 +179,12 @@ class QuantumModelServer:
     def load_model(self):
         """Load quantum transformer model."""
         try:
-            logging.info("Loading model from {self.config.model_path}")
+            logging.info(f"Loading model from {self.config.model_path}")
 
             # Load model configuration
             _model_config_path = Path(self.config.model_path) / "config.json"
-            if model_config_path.exists():
-                with open(model_config_path) as f:
+            if _model_config_path.exists():
+                with open(_model_config_path) as f:
                     _model_config = json.load(f)
             else:
                 # Default configuration
@@ -196,13 +202,14 @@ class QuantumModelServer:
                     },
                 }
 
-            self.model = ScalableQuantumTransformer(**model_config)
+            # Build model from configuration dict
+            self.model = ScalableQuantumTransformer(**_model_config)
 
             # Load weights if available
             _model_weights_path = Path(self.config.model_path) / "pytorch_model.bin"
-            if model_weights_path.exists():
-                _state_dict = torch.load(model_weights_path, _map_location=self.device)
-                self.model.load_state_dict(state_dict)
+            if _model_weights_path.exists():
+                _state_dict = torch.load(_model_weights_path, map_location=self.device)
+                self.model.load_state_dict(_state_dict)
 
             self.model = self.model.to(self.device)
 
@@ -215,8 +222,8 @@ class QuantumModelServer:
 
             logging.info("Model loaded successfully")
 
-        except Exception as _e:
-            logging.error("Failed to load model: {e}")
+        except Exception as e:
+            logging.exception(f"Failed to load model: {e}")
             raise
 
     def quantize_model(self, model: nn.Module) -> nn.Module:
@@ -224,12 +231,12 @@ class QuantumModelServer:
         try:
             # Quantize linear layers for efficiency
             _quantized_model = torch.quantization.quantize_dynamic(
-                model, {nn.Linear, nn.MultiheadAttention}, _dtype=torch.qint8
+                model, {nn.Linear, nn.MultiheadAttention}, dtype=torch.qint8
             )
             logging.info("Model quantization applied")
-            return quantized_model
-        except Exception as _e:
-            logging.warning("Quantization failed: {e}")
+            return _quantized_model
+        except Exception as e:
+            logging.warning(f"Quantization failed: {e}")
             return model
 
     def _create_dummy_tokenizer(self):
@@ -244,12 +251,12 @@ class QuantumModelServer:
             def encode(self, text: str, max_length: int = 512) -> List[int]:
                 # Simple character-based encoding for demo
                 _tokens = [ord(c) % self.vocab_size for c in text[: max_length - 2]]
-                return [1] + tokens + [self.eos_token_id]  # Add special tokens
+                return [1] + _tokens + [self.eos_token_id]  # Add special tokens
 
             def decode(self, tokens: List[int]) -> str:
                 # Simple decoding
                 _chars = [chr(t % 128) for t in tokens if t not in [0, 1]]
-                return "".join(chars)
+                return "".join(_chars)
 
         return DummyTokenizer()
 
@@ -260,19 +267,19 @@ class QuantumModelServer:
         try:
             # Tokenization
             _input_ids = self.tokenizer.encode(text_input.text, text_input.max_length)
-            _input_tensor = torch.tensor([input_ids], _device=self.device)
+            _input_tensor = torch.tensor([_input_ids], device=self.device)
 
             # Create attention mask
-            _attention_mask = torch.ones_like(input_tensor)
+            _attention_mask = torch.ones_like(_input_tensor)
 
             # Model inference
             with torch.no_grad():
                 _outputs = self.model(
-                    _input_ids=input_tensor, _attention_mask=attention_mask
+                    _input_ids=_input_tensor, _attention_mask=_attention_mask
                 )
 
             # Extract predictions (simplified)
-            _predictions = outputs.last_hidden_state.cpu().numpy()
+            _predictions = _outputs.last_hidden_state.cpu().numpy()
 
             # Generate quantum metrics
             _quantum_metrics = {
@@ -281,23 +288,23 @@ class QuantumModelServer:
                 "error_rate": np.random.beta(1, 4),
             }
 
-            _processing_time = time.time() - start_time
+            _processing_time = time.time() - _start_time
 
             # Update metrics
             self.model_inference_time.labels(
                 _model_version=self.config.model_version
-            ).observe(processing_time)
+            ).observe(_processing_time)
 
             return {
                 "text": text_input.text,
-                "embeddings": predictions[0].tolist(),
-                "quantum_metrics": quantum_metrics,
-                "processing_time": processing_time,
+                "embeddings": _predictions[0].tolist(),
+                "quantum_metrics": _quantum_metrics,
+                "processing_time": _processing_time,
             }
 
-        except Exception as _e:
-            logging.error("Prediction failed: {e}")
-            raise HTTPException(status_code=500, _detail="Prediction failed: {str(e)}")
+        except Exception as e:
+            logging.exception(f"Prediction failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def predict_batch(self, batch_input: BatchTextInput) -> List[Dict[str, Any]]:
         """Process batch of texts."""
@@ -314,64 +321,62 @@ class QuantumModelServer:
             _all_input_ids = []
             for text in batch_input.texts:
                 _input_ids = self.tokenizer.encode(text, batch_input.max_length)
-                all_input_ids.append(input_ids)
+                _all_input_ids.append(_input_ids)
 
             # Pad to same length
-            _max_len = max(len(ids) for ids in all_input_ids)
+            _max_len = max(len(ids) for ids in _all_input_ids)
             _padded_ids = []
             _attention_masks = []
 
-            for input_ids in all_input_ids:
+            for input_ids in _all_input_ids:
                 _padded = input_ids + [self.tokenizer.pad_token_id] * (
-                    max_len - len(input_ids)
+                    _max_len - len(input_ids)
                 )
-                _mask = [1] * len(input_ids) + [0] * (max_len - len(input_ids))
-                padded_ids.append(padded)
-                attention_masks.append(mask)
+                _mask = [1] * len(input_ids) + [0] * (_max_len - len(input_ids))
+                _padded_ids.append(_padded)
+                _attention_masks.append(_mask)
 
             # Create tensors
-            _input_tensor = torch.tensor(padded_ids, _device=self.device)
-            _mask_tensor = torch.tensor(attention_masks, _device=self.device)
+            _input_tensor = torch.tensor(_padded_ids, device=self.device)
+            _mask_tensor = torch.tensor(_attention_masks, device=self.device)
 
             # Batch inference
             with torch.no_grad():
                 _outputs = self.model(
-                    input_ids=input_tensor, _attention_mask=mask_tensor
+                    input_ids=_input_tensor, _attention_mask=_mask_tensor
                 )
 
             # Process results
-            _predictions = outputs.last_hidden_state.cpu().numpy()
+            _predictions = _outputs.last_hidden_state.cpu().numpy()
 
             _results = []
-            for i, (text, pred) in enumerate(zip(batch_input.texts, predictions)):
+            for i, (text, pred) in enumerate(zip(batch_input.texts, _predictions)):
                 _quantum_metrics = {
                     "sampling_efficiency": np.random.beta(2, 1),
                     "quantum_coherence": np.random.beta(3, 1),
                     "error_rate": np.random.beta(1, 4),
                 }
 
-                results.append(
+                _results.append(
                     {
                         "text": text,
                         "embeddings": pred.tolist(),
-                        "quantum_metrics": quantum_metrics,
+                        "quantum_metrics": _quantum_metrics,
                     }
                 )
 
-            _processing_time = time.time() - start_time
+            _processing_time = time.time() - _start_time
 
             # Update metrics
             self.model_inference_time.labels(
                 _model_version=self.config.model_version
-            ).observe(processing_time / len(batch_input.texts))
+            ).observe(_processing_time / len(batch_input.texts))
 
-            return results
+            return _results
 
-        except Exception as _e:
-            logging.error("Batch prediction failed: {e}")
-            raise HTTPException(
-                _status_code=500, _detail="Batch prediction failed: {str(e)}"
-            )
+        except Exception as e:
+            logging.exception(f"Batch prediction failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
     def get_health_status(self) -> Dict[str, Any]:
         """Get server health status."""
@@ -382,20 +387,20 @@ class QuantumModelServer:
             import psutil
 
             _process = psutil.Process()
-            memory_usage["cpu_mb"] = process.memory_info().rss / 1024**2
+            _memory_usage["cpu_mb"] = _process.memory_info().rss / 1024**2
         except ImportError:
-            memory_usage["cpu_mb"] = 0
+            _memory_usage["cpu_mb"] = 0
 
         # GPU memory
         if torch.cuda.is_available():
-            memory_usage["gpu_mb"] = torch.cuda.memory_allocated() / 1024**2
-            memory_usage["gpu_reserved_mb"] = torch.cuda.memory_reserved() / 1024**2
+            _memory_usage["gpu_mb"] = torch.cuda.memory_allocated() / 1024**2
+            _memory_usage["gpu_reserved_mb"] = torch.cuda.memory_reserved() / 1024**2
 
         return {
             "status": "healthy" if self.model is not None else "unhealthy",
             "model_loaded": self.model is not None,
             "gpu_available": torch.cuda.is_available(),
-            "memory_usage": memory_usage,
+            "memory_usage": _memory_usage,
             "uptime": time.time() - self.start_time,
             "model_version": self.config.model_version,
         }
@@ -413,12 +418,12 @@ def create_app(config: DeploymentConfig) -> FastAPI:
 
     # CORS middleware
     if config.enable_cors:
-        app.add_middleware(
+        _app.add_middleware(
             CORSMiddleware,
-            _allow_origins=["*"],
-            _allow_credentials=True,
-            _allow_methods=["*"],
-            _allow_headers=["*"],
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
         )
 
     # Initialize model server
@@ -427,10 +432,10 @@ def create_app(config: DeploymentConfig) -> FastAPI:
     # API Key dependency
     def verify_api_key(api_key: str = None):
         if config.api_key_required and api_key != config.api_key:
-            raise HTTPException(status_code=401, _detail="Invalid API key")
+            raise HTTPException(status_code=401, detail="Invalid API key")
         return True
 
-    @app.get("/", _response_model=Dict[str, str])
+    @_app.get("/", response_model=Dict[str, str])
     async def root():
         """Root endpoint."""
         return {
@@ -439,87 +444,87 @@ def create_app(config: DeploymentConfig) -> FastAPI:
             "docs": "/docs",
         }
 
-    @app.get("/health", _response_model=HealthResponse)
+    @_app.get("/health", response_model=HealthResponse)
     async def health_check():
         """Health check endpoint."""
-        model_server.request_counter.labels("GET", "/health", "200").inc()
+        _model_server.request_counter.labels("GET", "/health", "200").inc()
 
-        with model_server.request_duration.labels("GET", "/health").time():
-            _health_data = model_server.get_health_status()
+        with _model_server.request_duration.labels("GET", "/health").time():
+            _health_data = _model_server.get_health_status()
 
             return HealthResponse(
-                _status=health_data["status"],
-                _model_loaded=health_data["model_loaded"],
-                _gpu_available=health_data["gpu_available"],
-                _memory_usage=health_data["memory_usage"],
-                _uptime=health_data["uptime"],
+                status=_health_data["status"],
+                model_loaded=_health_data["model_loaded"],
+                gpu_available=_health_data["gpu_available"],
+                memory_usage=_health_data["memory_usage"],
+                uptime=_health_data["uptime"],
             )
 
-    @app.post("/predict", _response_model=Dict[str, Any])
+    @_app.post("/predict", response_model=Dict[str, Any])
     async def predict(
         text_input: TextInput,
         background_tasks: BackgroundTasks,
         _: bool = Depends(verify_api_key),
     ):
         """Single text prediction endpoint."""
-        model_server.request_counter.labels("POST", "/predict", "200").inc()
-        model_server.active_requests.inc()
+        _model_server.request_counter.labels("POST", "/predict", "200").inc()
+        _model_server.active_requests.inc()
 
         try:
-            with model_server.request_duration.labels("POST", "/predict").time():
-                _result = await model_server.predict_single(text_input)
+            with _model_server.request_duration.labels("POST", "/predict").time():
+                _result = await _model_server.predict_single(text_input)
 
                 return {
-                    "prediction": result,
+                    "prediction": _result,
                     "model_version": config.model_version,
-                    "processing_time": result["processing_time"],
-                    "quantum_metrics": result["quantum_metrics"],
+                    "processing_time": _result["processing_time"],
+                    "quantum_metrics": _result["quantum_metrics"],
                 }
         finally:
-            model_server.active_requests.dec()
+            _model_server.active_requests.dec()
 
-    @app.post("/predict/batch", _response_model=List[Dict[str, Any]])
+    @_app.post("/predict/batch", response_model=List[Dict[str, Any]])
     async def predict_batch(
         batch_input: BatchTextInput,
         background_tasks: BackgroundTasks,
         _: bool = Depends(verify_api_key),
     ):
         """Batch text prediction endpoint."""
-        model_server.request_counter.labels("POST", "/predict/batch", "200").inc()
-        model_server.active_requests.inc()
+        _model_server.request_counter.labels("POST", "/predict/batch", "200").inc()
+        _model_server.active_requests.inc()
 
         try:
-            with model_server.request_duration.labels("POST", "/predict/batch").time():
-                _results = await model_server.predict_batch(batch_input)
+            with _model_server.request_duration.labels("POST", "/predict/batch").time():
+                _results = await _model_server.predict_batch(batch_input)
 
-                return results
+                return _results
         finally:
-            model_server.active_requests.dec()
+            _model_server.active_requests.dec()
 
-    @app.get("/model/info")
+    @_app.get("/model/info")
     async def model_info(_: bool = Depends(verify_api_key)):
         """Get model information."""
         return {
             "model_name": config.model_name,
             "model_version": config.model_version,
-            "quantum_config": getattr(model_server.model, "quantum_config", {}),
-            "device": str(model_server.device),
+            "quantum_config": getattr(_model_server.model, "quantum_config", {}),
+            "device": str(_model_server.device),
             "quantization_enabled": config.enable_quantization,
         }
 
-    @app.get("/metrics")
+    @_app.get("/metrics")
     async def metrics():
         """Prometheus metrics endpoint."""
         if not config.enable_metrics:
-            raise HTTPException(status_code=404, _detail="Metrics disabled")
+            raise HTTPException(status_code=404, detail="Metrics disabled")
 
         # Update GPU memory metric
         if torch.cuda.is_available():
-            model_server.gpu_memory_usage.set(torch.cuda.memory_allocated())
+            _model_server.gpu_memory_usage.set(torch.cuda.memory_allocated())
 
-        return Response(generate_latest(), _media_type="text/plain")
+        return Response(generate_latest(), media_type="text/plain")
 
-    return app
+    return _app
 
 
 class ModelVersionManager:
@@ -557,8 +562,8 @@ class ModelVersionManager:
 
         _cumulative = 0.0
         for version, percentage in self.traffic_split.items():
-            cumulative += percentage
-            if rand_val < cumulative:
+            _cumulative += percentage
+            if _rand_val < _cumulative:
                 return self.models[version]
 
         # Fallback to default model
@@ -567,8 +572,8 @@ class ModelVersionManager:
     def update_traffic_split(self, new_split: Dict[str, float]):
         """Update traffic splitting percentages."""
         _total = sum(new_split.values())
-        if abs(total - 1.0) > 1e-6:
-            raise ValueError("Traffic split must sum to 1.0, got {total}")
+        if abs(_total - 1.0) > 1e-6:
+            raise ValueError(f"Traffic split must sum to 1.0, got {_total}")
 
         self.traffic_split.update(new_split)
 
@@ -616,7 +621,7 @@ CMD ["python", "-m", "uvicorn", "qtransformers.deployment:app", \\
      "--workers", "{config.workers}"]
 """
 
-    return dockerfile_content.strip()
+    return _dockerfile_content.strip()
 
 
 def create_kubernetes_config(config: DeploymentConfig) -> Dict[str, Any]:
@@ -685,8 +690,8 @@ def run_server(config: DeploymentConfig):
 
     # Setup logging
     logging.basicConfig(
-        _level=getattr(logging, config.log_level.upper()),
-        _format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        level=getattr(logging, config.log_level.upper()),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     # Create FastAPI app
@@ -694,12 +699,12 @@ def run_server(config: DeploymentConfig):
 
     # Run server
     uvicorn.run(
-        app,
-        _host=config.host,
-        _port=config.port,
-        _workers=config.workers,
-        _log_level=config.log_level.lower(),
-        _access_log=True,
+        app=_app,
+        host=config.host,
+        port=config.port,
+        workers=config.workers,
+        log_level=config.log_level.lower(),
+        access_log=True,
     )
 
 
@@ -709,28 +714,28 @@ def main():
     import argparse
 
     _parser = argparse.ArgumentParser(description="Quantum Transformers Deployment")
-    parser.add_argument("--model-path", _required=True, _help="Path to model files")
-    parser.add_argument("--host", _default="0.0.0.0", _help="Server host")
-    parser.add_argument("--port", _type=int, _default=8000, _help="Server port")
-    parser.add_argument("--workers", _type=int, _default=1, _help="Number of workers")
-    parser.add_argument(
-        "--quantization", _action="store_true", _help="Enable quantization"
+    _parser.add_argument("--model-path", required=True, help="Path to model files")
+    _parser.add_argument("--host", default="0.0.0.0", help="Server host")
+    _parser.add_argument("--port", type=int, default=8000, help="Server port")
+    _parser.add_argument("--workers", type=int, default=1, help="Number of workers")
+    _parser.add_argument(
+        "--quantization", action="store_true", help="Enable quantization"
     )
-    parser.add_argument("--api-key", _help="API key for authentication")
+    _parser.add_argument("--api-key", help="API key for authentication")
 
-    _args = parser.parse_args()
+    _args = _parser.parse_args()
 
     _config = DeploymentConfig(
-        _model_path=args.model_path,
-        _host=args.host,
-        _port=args.port,
-        _workers=args.workers,
-        _enable_quantization=args.quantization,
-        _api_key_required=args.api_key is not None,
-        _api_key=args.api_key,
+        model_path=_args.model_path,
+        host=_args.host,
+        port=_args.port,
+        workers=_args.workers,
+        enable_quantization=_args.quantization,
+        api_key_required=_args.api_key is not None,
+        api_key=_args.api_key,
     )
 
-    run_server(config)
+    run_server(_config)
 
 
 if __name__ == "__main__":
