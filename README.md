@@ -4,6 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-green.svg)](https://github.com/kumarlokesh/q-transformers)
+[![Crates.io](https://img.shields.io/crates/v/qtransformers-core.svg)](https://crates.io/crates/qtransformers-core)
 
 ## Table of contents
 

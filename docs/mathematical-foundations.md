@@ -6,7 +6,7 @@ This document provides the mathematical foundation for Q-Transformers' quantum-e
 
 ## Quantum-Enhanced Attention
 
-Q-Transformers achieves improvements on reasoning tasks through quantum-inspired sampling of attention patterns.
+Q-Transformers explores quantum-inspired sampling of attention patterns as an alternative to full softmax computation.
 
 **Complexity**: Quantum sampling approximates softmax attention with O(n·S) complexity where S << n, using advanced sampling strategies for better approximation quality.
 
@@ -164,18 +164,20 @@ def approximate_softmax_quantum(logits, num_samples):
 - **[reproducibility]** Scripts/notebooks stored under `examples/` with README; random seeds, configs under `benchmarks/configs/` (planned).
 - **[compute]** Record hardware, batch sizes, wall-clock; cap runtime per experiment.
 
-## Expected Outcomes
+## Research Goals
 
-### Success Criteria
+### Target Criteria (to be validated)
 
-- **Approximation Error**: < 5% Frobenius norm difference
-- **Speed Improvement**: ≥ 2× faster than vanilla attention
-- **Memory Reduction**: ≥ 50% memory usage reduction
+- **Approximation Error**: Target < 5% Frobenius norm difference
+- **Speed Improvement**: Target ≥ 2× faster than vanilla attention for large sequences
+- **Memory Reduction**: Target significant memory reduction via sparse sampling
+
+> **Note**: These are research targets, not verified claims. Actual results depend on implementation, hardware, and problem characteristics.
 
 ### Risk Mitigation
 
 - **Poor Approximation**: Fall back to classical efficient attention methods
-- **No Speed Gain**: Focus on interpretability benefits
+- **No Speed Gain**: Focus on memory efficiency and interpretability
 - **Implementation Complexity**: Start with simplified quantum-inspired algorithms
 
 ## References

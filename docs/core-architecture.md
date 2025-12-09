@@ -4,11 +4,12 @@
 
 ## Features
 
-- **Performance improvements** on reasoning tasks (CoLA: +25.1%, RTE: +12.3%)
 - **PyTorch compatibility** - Drop-in replacement for nn.MultiheadAttention
 - **Multi-GPU support** - Distributed training capabilities
-- **Comprehensive benchmarks** - GLUE/SuperGLUE validation
-- **Multiple backends** - Classical, quantum simulation, and hardware integration  
+- **Benchmark framework** - GLUE/SuperGLUE evaluation tools
+- **Multiple backends** - Classical, quantum simulation, and hardware integration
+
+> **Note**: Performance metrics in this document are from internal benchmarks and should be reproduced using the scripts in `benchmarks/` before citing.
 
 ---
 
@@ -16,14 +17,14 @@
 
 ### Advanced Sampling Strategies
 
-**42% Error Reduction over Baseline**
+The following results are from internal benchmarks on synthetic attention matrices. Reproduce using `benchmarks/sampling_comparison.py`.
 
-| Strategy | Error Rate | Improvement | Key Features |
-|----------|------------|-------------|--------------|
-| **Stratified + Control Variate** | **60.8%** | **42% better** | Variance reduction, importance sampling |
-| **Adaptive + Control Variate** | **73.3%** | **30% better** | Entropy-based adaptive sampling |
-| Hybrid Sampling | 105.6% | baseline | Top-k + quantum sampling |
-| Naive Sampling | ~100% | reference | Basic importance sampling |
+| Strategy | Relative Error | Notes |
+|----------|----------------|-------|
+| Stratified + Control Variate | Lower | Variance reduction, importance sampling |
+| Adaptive + Control Variate | Lower | Entropy-based adaptive sampling |
+| Hybrid Sampling | Baseline | Top-k + quantum sampling |
+| Naive Sampling | Reference | Basic importance sampling |
 
 **Technical Innovation:**
 
@@ -90,11 +91,11 @@ output, weights = quantum_sim.simulate_attention(Q, K, V,
 - **Phase damping**: Dephasing without energy loss
 - **Thermal noise**: Temperature-dependent fluctuations
 
-**Performance:** Sub-2ms latency for 64×64 attention matrices
+**Performance:** Latency depends on hardware and configuration. See `benchmarks/` for measurement scripts.
 
 ### 4. **Matrix Product State (MPS) Representation**
 
-**Exponential Memory Compression: 4M+ compression ratio**
+**Memory-Efficient Quantum State Representation**
 
 ```python
 # MPS simulation for large quantum systems
@@ -103,12 +104,11 @@ mps_tensors = mps_sim.encode_attention_mps(Q, K, V)
 output = mps_sim.mps_attention_forward(mps_tensors, V)
 ```
 
-**Technical Breakthrough:**
+**Technical Approach:**
 
 - **Memory complexity**: O(n·D²) instead of O(2ⁿ) for full quantum simulation
 - **SVD-based decomposition**: Tensor network representation of quantum states
 - **Configurable bond dimensions**: Trade accuracy for memory efficiency
-- **Measured compression**: >4 million times memory reduction
 
 ### 5. **Comprehensive Memory Profiling System**
 
@@ -135,9 +135,8 @@ report = profiler.generate_report()
 
 **Key Insights:**
 
-- **Stratified sampling** provides best accuracy-speed tradeoff
-- **Multi-head quantum attention** successfully integrates with transformers
-- **MPS simulation** achieves extraordinary memory compression
-- **Memory overhead** remains minimal across all approaches
+- **Stratified sampling** provides good accuracy-speed tradeoff in internal tests
+- **Multi-head quantum attention** integrates with standard transformer APIs
+- **MPS simulation** enables memory-efficient quantum state representation
 
 ---
