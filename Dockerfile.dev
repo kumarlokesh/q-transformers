@@ -58,9 +58,12 @@ COPY python/pyproject.toml /workspace/python/pyproject.toml
 COPY rust-core/Cargo.toml /workspace/rust-core/Cargo.toml
 COPY rust-core/Cargo.lock /workspace/rust-core/Cargo.lock
 COPY requirements.txt /workspace/requirements.txt
+COPY README.md /workspace/README.md
 
 # Create minimal Python package structure for installation
 RUN mkdir -p /workspace/python/qtransformers && echo "__version__ = '0.1.0'" > /workspace/python/qtransformers/__init__.py
+# Copy README into python dir for editable install (pyproject.toml references ../README.md)
+RUN cp /workspace/README.md /workspace/python/README.md
 
 # Install Python dependencies (CACHED unless dependencies change)
 RUN python -m pip install -e /workspace/python
@@ -76,14 +79,15 @@ COPY python/ /workspace/python/
 COPY rust-core/src/ /workspace/rust-core/src/
 
 # Rebuild only the final package (fast since deps are cached)
-RUN python -m pip install -e /workspace/python --force-reinstall --no-deps
-RUN cd /workspace/rust-core && maturin build --release && pip install target/wheels/*.whl --force-reinstall
+# Install Python package first (editable), then Rust extension
+# Note: Rust crate is named 'qtransformers' on crates.io but the module is 'qtransformers_core'
+RUN python -m pip install -e /workspace/python --no-deps
+RUN cd /workspace/rust-core && maturin build --release && pip install target/wheels/*.whl
 
-# Copy remaining files (these changes don't affect dependencies)
+# Copy remaining files (these change don't affect dependencies)
 COPY tests/ /workspace/tests/
 COPY benchmarks/ /workspace/benchmarks/
 COPY examples/ /workspace/examples/
 COPY Makefile /workspace/Makefile
-COPY README.md /workspace/README.md
 
 CMD ["bash", "-c", "python -c 'import qtransformers as q; print(\"qtransformers\", q.__version__)' && rustc --version && cargo --version"]

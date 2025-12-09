@@ -3,8 +3,14 @@ name = "qtransformers-core"
 version = "0.1.0"
 edition = "2021"
 authors = ["Lokesh Kumar <lkumar94@gmail.com>"]
-description = "High-performance quantum-inspired attention kernels"
+description = "Quantum-inspired attention mechanisms for transformer models."
 license = "MIT"
+repository = "https://github.com/kumarlokesh/q-transformers"
+homepage = "https://github.com/kumarlokesh/q-transformers"
+documentation = "https://docs.rs/qtransformers-core"
+readme = "../README.md"
+keywords = ["quantum", "attention", "transformer", "machine-learning", "nlp"]
+categories = ["science", "algorithms"]
 
 [lib]
 name = "qtransformers_core"
@@ -13,9 +19,9 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 ndarray = "0.15"
 rayon = "1.7"
-pyo3 = { version = "0.20", features = ["extension-module", "auto-initialize"] }
-numpy = "0.20"
+pyo3 = { version = "0.22", features = ["extension-module", "auto-initialize"] }
+numpy = "0.22"
 rand = "0.8"
 
 [build-dependencies]
-pyo3-build-config = "0.20"
+pyo3-build-config = "0.22"

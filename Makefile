@@ -60,8 +60,8 @@ clean:
 # Installation (packages are built into Docker image)
 .PHONY: install
 install:
-	@echo "📦 Packages are built into Docker image"
-	@echo "ℹ️  Run 'make build' to build the image with all dependencies"
+	@echo "Packages are built into Docker image"
+	@echo "Run 'make build' to build the image with all dependencies"
 
 # Testing targets (use existing image if available)
 .PHONY: test
@@ -71,11 +71,11 @@ test:
 		$(MAKE) build; \
 	fi
 	$(DOCKER_RUN) $(DOCKER_TAG) bash -c "\
-		echo '🧪 Running Python tests...' && \
+		echo 'Running Python tests...' && \
 		python -m pytest tests/python/ -v && \
-		echo '🦀 Running Rust tests...' && \
+		echo 'Running Rust tests...' && \
 		cd rust-core && cargo test --quiet && cd .. && \
-		echo '🔗 Running integration tests...' && \
+		echo 'Running integration tests...' && \
 		python -m pytest tests/integration/ -v"
 
 .PHONY: test-python

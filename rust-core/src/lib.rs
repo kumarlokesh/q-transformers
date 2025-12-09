@@ -1,32 +1,31 @@
-use ndarray::{Array2, Axis};
-use numpy::{IntoPyArray, PyArray2, PyReadonlyArray2};
+use numpy::{PyArray2, PyReadonlyArray2};
 use pyo3::prelude::*;
 use std::cmp::Ordering;
 
-use ndarray::Array1;
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use rayon::prelude::*;
 
 /// High-performance quantum-inspired attention kernel
 #[pyfunction]
-fn quantum_attention_rs(
-    q: PyReadonlyArray2<f32>,
-    k: PyReadonlyArray2<f32>,
-    v: PyReadonlyArray2<f32>,
+fn quantum_attention_rs<'py>(
+    py: Python<'py>,
+    q: PyReadonlyArray2<'py, f32>,
+    k: PyReadonlyArray2<'py, f32>,
+    v: PyReadonlyArray2<'py, f32>,
     top_k: usize,
-) -> PyResult<Py<PyArray2<f32>>> {
+) -> PyResult<Bound<'py, PyArray2<f32>>> {
     let q = q.as_array();
     let k = k.as_array();
     let v = v.as_array();
 
-    let seq_len = q.len_of(Axis(0));
-    let d_model = q.len_of(Axis(1));
+    let seq_len = q.shape()[0];
+    let d_model = q.shape()[1];
 
-    if k.len_of(Axis(0)) != seq_len
-        || v.len_of(Axis(0)) != seq_len
-        || k.len_of(Axis(1)) != d_model
-        || v.len_of(Axis(1)) != d_model
+    if k.shape()[0] != seq_len
+        || v.shape()[0] != seq_len
+        || k.shape()[1] != d_model
+        || v.shape()[1] != d_model
     {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "q, k, v must have shapes (seq_len, d_model) with matching dims",
@@ -39,31 +38,33 @@ fn quantum_attention_rs(
     let num_samples = top_k.max(1).min(seq_len.max(1));
 
     // Compute per-row outputs in parallel
-    let rows: Vec<Array1<f32>> = (0..seq_len)
+    let rows: Vec<Vec<f32>> = (0..seq_len)
         .into_par_iter()
         .map(|i| {
-            let qi = q.row(i).to_owned(); // (d_model)
-            let mut logits = k.dot(&qi); // (seq_len)
-            logits.mapv_inplace(|x| x / scale);
+            // Compute logits for row i: K @ q[i]
+            let mut logits: Vec<f32> = vec![0.0; seq_len];
+            for j in 0..seq_len {
+                let mut dot = 0.0f32;
+                for d in 0..d_model {
+                    dot += k[[j, d]] * q[[i, d]];
+                }
+                logits[j] = dot / scale;
+            }
 
             // Amplitude encoding and probabilities: p_j ∝ exp(logit/2)^2 = exp(logit)
-            // So p ∝ exp(logit). We'll compute stable softmax-like weights for sampling only.
             let max_logit = logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-            let mut weights: Vec<f32> = logits.iter().map(|&x| (x - max_logit).exp()).collect();
+            let weights: Vec<f32> = logits.iter().map(|&x| (x - max_logit).exp()).collect();
 
             let sum_w: f32 = weights.iter().sum();
             if !sum_w.is_finite() || sum_w <= 0.0 {
-                // Fallback to zeros if invalid
-                return Array1::<f32>::zeros(d_model);
+                return vec![0.0f32; d_model];
             }
 
             // Build categorical sampler
-            // Normalize not required by WeightedIndex; it uses relative weights
-            let dist = WeightedIndex::new(&weights).ok();
-            if dist.is_none() {
-                return Array1::<f32>::zeros(d_model);
-            }
-            let dist = dist.unwrap();
+            let dist = match WeightedIndex::new(&weights) {
+                Ok(d) => d,
+                Err(_) => return vec![0.0f32; d_model],
+            };
             let mut rng = thread_rng();
 
             // Empirical probability via sampling
@@ -75,12 +76,13 @@ fn quantum_attention_rs(
             let inv_samples = 1.0f32 / (num_samples as f32);
 
             // Weighted sum over V using empirical probabilities
-            let mut out = Array1::<f32>::zeros(d_model);
+            let mut out = vec![0.0f32; d_model];
             for (j, &c) in counts.iter().enumerate() {
                 if c > 0 {
                     let w = (c as f32) * inv_samples;
-                    let vj = v.row(j);
-                    out = out + &(vj.to_owned() * w);
+                    for d in 0..d_model {
+                        out[d] += v[[j, d]] * w;
+                    }
                 }
             }
 
@@ -88,33 +90,33 @@ fn quantum_attention_rs(
         })
         .collect();
 
-    let mut result = Array2::<f32>::zeros((seq_len, d_model));
-    for (i, row) in rows.into_iter().enumerate() {
-        result.row_mut(i).assign(&row);
-    }
+    // Create 2D array from rows
+    let result = PyArray2::from_vec2_bound(py, &rows)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Shape error: {}", e)))?;
 
-    Python::with_gil(|py| Ok(result.into_pyarray(py).to_owned()))
+    Ok(result)
 }
 
 /// Classical efficient attention approximation
 #[pyfunction]
-fn classical_attention_rs(
-    q: PyReadonlyArray2<f32>,
-    k: PyReadonlyArray2<f32>,
-    v: PyReadonlyArray2<f32>,
+fn classical_attention_rs<'py>(
+    py: Python<'py>,
+    q: PyReadonlyArray2<'py, f32>,
+    k: PyReadonlyArray2<'py, f32>,
+    v: PyReadonlyArray2<'py, f32>,
     top_k: usize,
-) -> PyResult<Py<PyArray2<f32>>> {
+) -> PyResult<Bound<'py, PyArray2<f32>>> {
     let q = q.as_array();
     let k = k.as_array();
     let v = v.as_array();
 
-    let seq_len = q.len_of(Axis(0));
-    let d_model = q.len_of(Axis(1));
+    let seq_len = q.shape()[0];
+    let d_model = q.shape()[1];
 
-    if k.len_of(Axis(0)) != seq_len
-        || v.len_of(Axis(0)) != seq_len
-        || k.len_of(Axis(1)) != d_model
-        || v.len_of(Axis(1)) != d_model
+    if k.shape()[0] != seq_len
+        || v.shape()[0] != seq_len
+        || k.shape()[1] != d_model
+        || v.shape()[1] != d_model
     {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "q, k, v must have shapes (seq_len, d_model) with matching dims",
@@ -125,14 +127,18 @@ fn classical_attention_rs(
     let k_eff = top_k.clamp(1, seq_len.max(1));
 
     // Compute per-row outputs in parallel
-    let rows: Vec<Array1<f32>> = (0..seq_len)
+    let rows: Vec<Vec<f32>> = (0..seq_len)
         .into_par_iter()
         .map(|i| {
-            let qi = q.row(i).to_owned(); // (d_model)
-
-            // scores = K · qi / sqrt(d)
-            let mut scores = k.dot(&qi);
-            scores.mapv_inplace(|x| x / scale);
+            // Compute scores for row i: K @ q[i] / sqrt(d)
+            let mut scores: Vec<f32> = vec![0.0; seq_len];
+            for j in 0..seq_len {
+                let mut dot = 0.0f32;
+                for d in 0..d_model {
+                    dot += k[[j, d]] * q[[i, d]];
+                }
+                scores[j] = dot / scale;
+            }
 
             // Select top-k indices by score (descending)
             let mut idx: Vec<usize> = (0..seq_len).collect();
@@ -154,37 +160,38 @@ fn classical_attention_rs(
                 .collect();
             let sum_exp: f32 = exp_scores.iter().sum();
             if !sum_exp.is_finite() || sum_exp <= 0.0 {
-                return Array1::<f32>::zeros(d_model);
+                return vec![0.0f32; d_model];
             }
             for e in exp_scores.iter_mut() {
                 *e /= sum_exp;
             }
 
             // Weighted sum of V rows
-            let mut out = Array1::<f32>::zeros(d_model);
+            let mut out = vec![0.0f32; d_model];
             for (w, &j) in exp_scores.iter().zip(top_idx.iter()) {
-                let vj = v.row(j);
-                out = out + &(vj.to_owned() * *w);
+                for d in 0..d_model {
+                    out[d] += v[[j, d]] * *w;
+                }
             }
             out
         })
         .collect();
 
-    let mut result = Array2::<f32>::zeros((seq_len, d_model));
-    for (i, row) in rows.into_iter().enumerate() {
-        result.row_mut(i).assign(&row);
-    }
+    // Create 2D array from rows
+    let result = PyArray2::from_vec2_bound(py, &rows)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Shape error: {}", e)))?;
 
-    Python::with_gil(|py| Ok(result.into_pyarray(py).to_owned()))
+    Ok(result)
 }
 
 /// Python module definition
 #[pymodule]
-fn qtransformers_core(_py: Python, m: &PyModule) -> PyResult<()> {
+fn qtransformers_core(m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(quantum_attention_rs, m)?)?;
     m.add_function(wrap_pyfunction!(classical_attention_rs, m)?)?;
     Ok(())
 }
 
-#[cfg(test)]
-mod tests;
+// Note: Unit tests for PyO3 extension modules cannot run via `cargo test`
+// because they require Python symbols at link time. Tests are run via:
+//   maturin develop && pytest tests/rust/

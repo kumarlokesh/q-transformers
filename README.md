@@ -17,7 +17,7 @@
     - [Benchmarking and Evaluation](#benchmarking-and-evaluation)
   - [Technical Overview](#technical-overview)
     - [Core Components](#core-components)
-  - [Technical Advantages](#technical-advantages)
+  - [Technical Approach](#technical-approach)
   - [License](#license)
   - [Additional documentation](#additional-documentation)
 
@@ -132,15 +132,17 @@ supremacy_results = verifier.verify_quantum_advantage(
 
 ### Core Components
 
-- **Quantum Attention**: O(log n) attention computation via quantum sampling
-- **Multi-GPU Training**: Linear scaling up to 8 GPUs with 90% efficiency
-- **Benchmark Suite**: Comprehensive GLUE/SuperGLUE evaluation framework
+- **Quantum-Inspired Attention**: Sampling-based attention approximation with O(n·S) complexity where S << n
+- **Multi-GPU Training**: Distributed training support with quantum-aware gradient synchronization
+- **Benchmark Suite**: GLUE/SuperGLUE evaluation framework for reproducible experiments
 
-## Technical Advantages
+## Technical Approach
 
-- **Scalability**: Reduces attention complexity from O(n²) to O(log n) through quantum sampling
-- **Performance**: 15-25% improvement on complex reasoning tasks (CoLA, RTE)
-- **Memory Efficiency**: 25% reduction in GPU memory usage vs classical transformers
+- **Sampling-Based Approximation**: Reduces full O(n²) attention to sparse sampling, trading exactness for efficiency
+- **Variance Reduction**: Stratified sampling and control variates improve approximation quality (42% error reduction in internal benchmarks)
+- **Memory Efficiency**: Sparse attention patterns reduce memory footprint
+
+> **Note**: Performance claims are based on internal benchmarks. Results may vary by hardware, configuration, and task. See `benchmarks/` for reproduction scripts.
 
 ## License
 

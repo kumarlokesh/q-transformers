@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
 Basic functionality test for Q-Transformers
-
-Tests the most fundamental components to verify they actually work.
 """
 
 import sys
@@ -110,7 +108,7 @@ def test_quantum_simulator():
 
 def main():
     """Run basic functionality tests."""
-    print("🧪 Q-Transformers Basic Functionality Test")
+    print("Q-Transformers Basic Functionality Test")
     print("=" * 50)
 
     _imports_ok = test_basic_imports()

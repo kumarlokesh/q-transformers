@@ -31,7 +31,6 @@ def test_module_structure():
         print("❌ qsim package directory missing")
         return False
 
-    # Check for __init__.py files
     if not (qtransformers_dir / "__init__.py").exists():
         print("❌ qtransformers/__init__.py missing")
         return False
@@ -40,7 +39,7 @@ def test_module_structure():
         print("❌ qsim/__init__.py missing")
         return False
 
-    print("✅ Module structure looks correct")
+    print("Module structure looks correct")
     return True
 
 
@@ -130,7 +129,7 @@ def test_version_info():
 
 def main():
     """Run minimal standalone tests."""
-    print("🧪 Q-Transformers Minimal Standalone Test")
+    print("Q-Transformers Minimal Standalone Test")
     print("=" * 50)
     print("This test requires no external dependencies")
     print()
