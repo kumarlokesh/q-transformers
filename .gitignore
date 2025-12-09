@@ -83,6 +83,7 @@ experiments/
 results/
 models/
 checkpoints/
+roadmap.yaml
 
 # Quantum backends
 qiskit.cfg
