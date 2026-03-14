@@ -58,7 +58,7 @@ def pytest_collection_modifyitems(config, items):
     """Automatically skip Rust tests if extension not available."""
     for item in items:
         if "rust" in item.keywords and not HAS_RUST_CORE:
-            _skip_rust = pytest.mark.skip(
-                _reason="qtransformers_core not built; run `make install` first"
+            skip_rust = pytest.mark.skip(
+                reason="qtransformers_core not built; run `make install` first"
             )
             item.add_marker(skip_rust)

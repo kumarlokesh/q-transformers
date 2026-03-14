@@ -1,138 +1,56 @@
 #!/usr/bin/env python3
 """
-Basic functionality test for Q-Transformers
+Basic functionality tests for Q-Transformers.
 """
 
-import sys
-from pathlib import Path
-
-_project_root = Path(__file__).parent
-sys.path.insert(0, str(_project_root / "python"))
+import torch
+import pytest
 
 
 def test_basic_imports():
-    """Test if basic imports work."""
-    print("Testing basic imports...")
+    """Test that core modules import successfully."""
+    from qtransformers.attention import QuantumAttentionLayer
+    from qsim.quantum_simulator import QuantumAttentionSimulator
 
-    try:
-        import torch
-
-        print("✅ PyTorch {torch.__version__} imported")
-    except ImportError as _e:
-        print("❌ PyTorch import failed: {e}")
-        return False
-
-    try:
-        # Test core attention import
-        from qtransformers.attention import QuantumAttentionLayer
-
-        print("✅ QuantumAttentionLayer imported")
-    except ImportError as _e:
-        print("❌ QuantumAttentionLayer import failed: {e}")
-        return False
-
-    try:
-        # Test quantum simulator import
-        from qsim.quantum_simulator import QuantumAttentionSimulator
-
-        print("✅ QuantumSimulator imported")
-    except ImportError as _e:
-        print("❌ QuantumSimulator import failed: {e}")
-        return False
-
-    return True
+    assert QuantumAttentionLayer is not None
+    assert QuantumAttentionSimulator is not None
 
 
-def test_quantum_attention_basic():
-    """Test basic quantum attention functionality."""
-    print("\nTesting basic quantum attention...")
+def test_quantum_attention_forward():
+    """Test basic quantum attention forward pass."""
+    from qtransformers.attention import QuantumAttentionLayer
 
-    try:
-        import torch
+    attention = QuantumAttentionLayer(embed_dim=64, num_heads=8)
 
-        from qtransformers.attention import QuantumAttentionLayer
+    seq_len, batch_size = 10, 2
+    x = torch.randn(seq_len, batch_size, 64)
 
-        _attention = QuantumAttentionLayer(embed_dim=64, _num_heads=8)
+    output, attn_weights = attention(x, x, x)
 
-        # Test forward pass
-        batch_size, seq_len, _embed_dim = 2, 10, 64
-        x = torch.randn(batch_size, seq_len, embed_dim)
-
-        # QuantumAttentionLayer expects query, key, value tensors
-        output, _attn_weights = attention(x, x, x)
-
-        print("✅ Forward pass successful")
-        print("   Input shape: {x.shape}")
-        print("   Output shape: {output.shape}")
-        print("   Output finite: {torch.isfinite(output).all()}")
-
-        return True
-
-    except Exception as _e:
-        print("❌ Quantum attention test failed: {e}")
-        return False
+    assert output.shape == (seq_len, batch_size, 64)
+    assert torch.isfinite(output).all()
 
 
-def test_quantum_simulator():
-    """Test basic quantum simulator."""
-    print("\nTesting quantum simulator...")
+def test_quantum_simulator_forward():
+    """Test basic quantum simulator forward pass."""
+    from qsim.quantum_simulator import QuantumAttentionSimulator
 
-    try:
-        import torch
+    simulator = QuantumAttentionSimulator(device="cpu")
 
-        from qsim.quantum_simulator import QuantumAttentionSimulator
+    query = torch.randn(2, 4, 8)
+    key = torch.randn(2, 4, 8)
+    value = torch.randn(2, 4, 8)
 
-        _simulator = QuantumAttentionSimulator(device="cpu")
+    result, attn_weights = simulator.simulate_attention(query, key, value, num_samples=16)
 
-        # Test basic state preparation - need 3D tensors (batch_size, seq_len, d_model)
-        # Small tensors: batch=2, seq_len=4, d_model=8
-        _query = torch.randn(2, 4, 8)
-        _key = torch.randn(2, 4, 8)
-        _value = torch.randn(2, 4, 8)
-
-        result, _attn_weights = simulator.simulate_attention(
-            query, key, value, _num_samples=16
-        )
-
-        print("✅ Quantum simulation successful")
-        print("   Query shape: {query.shape}")
-        print("   Result shape: {result.shape}")
-        print("   Result finite: {torch.isfinite(result).all()}")
-
-        return True
-
-    except Exception as _e:
-        print("❌ Quantum simulator test failed: {e}")
-        return False
+    assert result.shape == query.shape
+    assert torch.isfinite(result).all()
 
 
-def main():
-    """Run basic functionality tests."""
-    print("Q-Transformers Basic Functionality Test")
-    print("=" * 50)
+def test_package_version():
+    """Test that version info is accessible."""
+    import qtransformers
 
-    _imports_ok = test_basic_imports()
-
-    if not imports_ok:
-        print("\n❌ Basic imports failed. Cannot proceed with functionality tests.")
-        return False
-
-    _attention_ok = test_quantum_attention_basic()
-    _simulator_ok = test_quantum_simulator()
-
-    print("\n📊 Test Summary:")
-    print("   Imports: {'✅' if imports_ok else '❌'}")
-    print("   Quantum Attention: {'✅' if attention_ok else '❌'}")
-    print("   Quantum Simulator: {'✅' if simulator_ok else '❌'}")
-
-    if imports_ok and attention_ok and simulator_ok:
-        print("\n🎉 Basic functionality verified!")
-        return True
-    else:
-        print("\n⚠️  Some tests failed. Code needs debugging.")
-        return False
-
-
-if __name__ == "__main__":
-    _success = main()
-    sys.exit(0 if success else 1)
+    version = getattr(qtransformers, "__version__", None)
+    assert version is not None
+    assert version.startswith("0.")
